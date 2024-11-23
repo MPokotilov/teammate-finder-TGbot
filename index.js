@@ -19,6 +19,15 @@ const availableGames = ['CS2', 'Rust', 'RainbowSixSiege', 'Dota2', 'Factorio'];
 const playTimeOptions = ['День', 'Ночь', 'Утро', 'Вечер'];
 const languageOptions = ['Английский', 'Русский', 'Украинский'];
 const communicationOptions = ['Discord', 'Skype', 'TeamSpeak', 'Telegram'];
+const genderOptions = ['Мужской', 'Женский'];
+const timeZoneOptions = [
+  'UTC−12:00', 'UTC−11:00', 'UTC−10:00', 'UTC−9:00', 'UTC−8:00', 'UTC−7:00',
+  'UTC−6:00', 'UTC−5:00', 'UTC−4:00', 'UTC−3:00', 'UTC−2:00', 'UTC−1:00',
+  'UTC±0:00', 'UTC+1:00', 'UTC+2:00', 'UTC+3:00', 'UTC+4:00', 'UTC+5:00',
+  'UTC+6:00', 'UTC+7:00', 'UTC+8:00', 'UTC+9:00', 'UTC+10:00', 'UTC+11:00',
+  'UTC+12:00', 'UTC+13:00', 'UTC+14:00'
+];
+
 const gameRanks = {
   'CS2': [
     'Серебро-1 (Silver I)',
@@ -70,6 +79,11 @@ const registrationWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, введите ваш возраст числом.');
+      return;
+    }
     ctx.wizard.state.data = {};
     const age = parseInt(ctx.message.text);
     if (isNaN(age) || age <= 0) {
@@ -77,6 +91,25 @@ const registrationWizard = new Scenes.WizardScene(
       return;
     }
     ctx.wizard.state.data.age = age;
+    // Добавляем выбор пола
+    await ctx.reply(
+      'Укажи свой пол:',
+      Markup.keyboard(genderOptions).oneTime().resize()
+    );
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите пол из списка.');
+      return;
+    }
+    const gender = ctx.message.text;
+    if (!genderOptions.includes(gender)) {
+      await ctx.reply('Пожалуйста, выбери пол из списка.', Markup.keyboard(genderOptions).oneTime().resize());
+      return;
+    }
+    ctx.wizard.state.data.gender = gender;
     // Инициализируем массивы для игр и рангов
     ctx.wizard.state.data.games = [];
     ctx.wizard.state.data.ranks = [];
@@ -91,6 +124,11 @@ const registrationWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите игру из списка или нажмите "Готово".');
+      return;
+    }
     const game = ctx.message.text;
     if (game === 'Готово') {
       if (ctx.wizard.state.data.games.length === 0) {
@@ -106,7 +144,7 @@ const registrationWizard = new Scenes.WizardScene(
         `Какой ранг в ${currentGame}?`,
         Markup.keyboard(ranksForGame).oneTime().resize()
       );
-      return ctx.wizard.selectStep(3); // Переходим к шагу запроса рангов
+      return ctx.wizard.selectStep(4); // Переходим к шагу запроса рангов
     }
     if (!ctx.wizard.state.availableGames.includes(game)) {
       await ctx.reply(
@@ -130,7 +168,7 @@ const registrationWizard = new Scenes.WizardScene(
         `Какой ранг в ${currentGame}?`,
         Markup.keyboard(ranksForGame).oneTime().resize()
       );
-      return ctx.wizard.selectStep(3); // Переходим к шагу запроса рангов
+      return ctx.wizard.selectStep(4); // Переходим к шагу запроса рангов
     } else {
       await ctx.reply(
         `Вы выбрали: ${ctx.wizard.state.data.games.join(', ')}.\nВыберите еще игру или нажмите "Готово" для завершения.`,
@@ -140,6 +178,11 @@ const registrationWizard = new Scenes.WizardScene(
     }
   },
   async (ctx) => {
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите ранг из списка.');
+      return;
+    }
     const currentGame = ctx.wizard.state.data.games[ctx.wizard.state.currentGameIndex];
     const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5'];
     const rank = ctx.message.text.trim();
@@ -174,6 +217,11 @@ const registrationWizard = new Scenes.WizardScene(
   },
   async (ctx) => {
     // Шаг выбора времени игры
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите время игры из списка или нажмите "Готово".');
+      return;
+    }
     const playTime = ctx.message.text;
     if (playTime === 'Готово') {
       if (ctx.wizard.state.data.playTime.length === 0) {
@@ -209,6 +257,11 @@ const registrationWizard = new Scenes.WizardScene(
   },
   async (ctx) => {
     // Шаг выбора языка
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите язык из списка или нажмите "Готово".');
+      return;
+    }
     const language = ctx.message.text;
     if (language === 'Готово') {
       if (ctx.wizard.state.data.language.length === 0) {
@@ -244,32 +297,23 @@ const registrationWizard = new Scenes.WizardScene(
   },
   async (ctx) => {
     // Шаг выбора программ для общения
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите программу из списка или нажмите "Готово".');
+      return;
+    }
     const tool = ctx.message.text;
     if (tool === 'Готово') {
       if (ctx.wizard.state.data.communicationTool.length === 0) {
         await ctx.reply('Вы не выбрали ни одной программы. Пожалуйста, выберите хотя бы один вариант.');
         return; // Остаемся на том же шаге
       }
-      // Переходим к завершению регистрации
-      await ctx.reply('Твой профиль успешно сохранен!', Markup.removeKeyboard());
-      // Сохранение данных в базе данных
-      const userData = ctx.wizard.state.data;
-      try {
-        await User.findOneAndUpdate(
-          { telegramId: ctx.from.id },
-          {
-            telegramId: ctx.from.id,
-            username: ctx.from.username || '',
-            ...userData,
-          },
-          { upsert: true }
-        );
-        console.log('Данные успешно сохранены в базу данных');
-      } catch (err) {
-        console.error('Ошибка при сохранении профиля:', err);
-        await ctx.reply('Произошла ошибка при сохранении профиля. Пожалуйста, попробуй позже.');
-      }
-      return ctx.scene.leave();
+      // Переходим к выбору часового пояса
+      await ctx.reply(
+        'Выберите свой часовой пояс:',
+        Markup.keyboard(timeZoneOptions).oneTime().resize()
+      );
+      return ctx.wizard.next();
     }
     if (!ctx.wizard.state.availableCommunicationTools.includes(tool)) {
       await ctx.reply(
@@ -288,6 +332,39 @@ const registrationWizard = new Scenes.WizardScene(
       Markup.keyboard([...ctx.wizard.state.availableCommunicationTools, 'Готово']).oneTime().resize()
     );
     return; // Остаемся на этом шаге
+  },
+  async (ctx) => {
+    // Шаг выбора часового пояса
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите часовой пояс из списка.');
+      return;
+    }
+    const timeZone = ctx.message.text;
+    if (!timeZoneOptions.includes(timeZone)) {
+      await ctx.reply('Пожалуйста, выберите часовой пояс из списка.', Markup.keyboard(timeZoneOptions).oneTime().resize());
+      return;
+    }
+    ctx.wizard.state.data.timeZone = timeZone;
+    // Сохранение данных в базе данных
+    const userData = ctx.wizard.state.data;
+    try {
+      await User.findOneAndUpdate(
+        { telegramId: ctx.from.id },
+        {
+          telegramId: ctx.from.id,
+          username: ctx.from.username || '',
+          ...userData,
+        },
+        { upsert: true }
+      );
+      await ctx.reply('Твой профиль успешно сохранен!', Markup.removeKeyboard());
+      console.log('Данные успешно сохранены в базу данных');
+    } catch (err) {
+      console.error('Ошибка при сохранении профиля:', err);
+      await ctx.reply('Произошла ошибка при сохранении профиля. Пожалуйста, попробуй позже.');
+    }
+    return ctx.scene.leave();
   }
 );
 
@@ -300,11 +377,16 @@ const findWizard = new Scenes.WizardScene(
     ctx.wizard.state.selectedRanks = [];
     await ctx.reply(
       'Выберите критерии поиска (можно выбрать несколько):',
-      Markup.keyboard(['Игра', 'Ранг', 'Время игры', 'Язык', 'Программа', 'Готово']).oneTime().resize()
+      Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize()
     );
     return ctx.wizard.next();
   },
   async (ctx) => {
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите критерий из списка или нажмите "Готово".');
+      return;
+    }
     const choice = ctx.message.text;
     if (choice === 'Готово') {
       if (Object.keys(ctx.wizard.state.searchCriteria).length === 0) {
@@ -319,11 +401,17 @@ const findWizard = new Scenes.WizardScene(
       if (ctx.wizard.state.searchCriteria.ranks) {
         query['ranks'] = { $in: ctx.wizard.state.searchCriteria.ranks };
       }
+      if (ctx.wizard.state.searchCriteria.gender) {
+        query['gender'] = ctx.wizard.state.searchCriteria.gender;
+      }
       if (ctx.wizard.state.searchCriteria.playTime) {
         query['playTime'] = { $in: ctx.wizard.state.searchCriteria.playTime };
       }
       if (ctx.wizard.state.searchCriteria.language) {
         query['language'] = { $in: ctx.wizard.state.searchCriteria.language };
+      }
+      if (ctx.wizard.state.searchCriteria.timeZone) {
+        query['timeZone'] = { $in: ctx.wizard.state.searchCriteria.timeZone };
       }
       if (ctx.wizard.state.searchCriteria.communicationTool) {
         query['communicationTool'] = { $in: ctx.wizard.state.searchCriteria.communicationTool };
@@ -334,7 +422,7 @@ const findWizard = new Scenes.WizardScene(
       } else {
         let response = 'Найдены следующие пользователи:\n';
         results.forEach((user) => {
-          response += `\n👤 @${user.username || 'не указан'}\nВозраст: ${user.age}\nИгры: ${user.games.join(', ')}\nРанги: ${user.ranks.join(', ')}\nВремя игры: ${user.playTime.join(', ')}\nЯзык: ${user.language.join(', ')}\nПрограммы для общения: ${user.communicationTool.join(', ')}\n`;
+          response += `\n👤 @${user.username || 'не указан'}\nВозраст: ${user.age}\nПол: ${user.gender}\nИгры: ${user.games.join(', ')}\nРанги: ${user.ranks.join(', ')}\nВремя игры: ${user.playTime.join(', ')}\nЯзык: ${user.language.join(', ')}\nЧасовой пояс: ${user.timeZone}\nПрограммы для общения: ${user.communicationTool.join(', ')}\n`;
         });
         await ctx.reply(response);
       }
@@ -359,6 +447,13 @@ const findWizard = new Scenes.WizardScene(
         ctx.wizard.state.searchCriteria.ranks = [];
         await askForRank(ctx);
         return ctx.wizard.selectStep(3); // Переходим к шагу выбора рангов
+      case 'Пол':
+        ctx.wizard.state.currentFilter = 'gender';
+        await ctx.reply(
+          'Выберите пол:',
+          Markup.keyboard(genderOptions).oneTime().resize()
+        );
+        return ctx.wizard.next();
       case 'Время игры':
         ctx.wizard.state.availablePlayTimes = [...playTimeOptions];
         ctx.wizard.state.searchCriteria.playTime = [];
@@ -377,7 +472,16 @@ const findWizard = new Scenes.WizardScene(
         );
         ctx.wizard.state.currentFilter = 'language';
         return ctx.wizard.next();
-      case 'Программа':
+      case 'Часовой пояс':
+        ctx.wizard.state.availableTimeZones = [...timeZoneOptions];
+        ctx.wizard.state.searchCriteria.timeZone = [];
+        await ctx.reply(
+          'Выберите часовой пояс (можно выбрать несколько):',
+          Markup.keyboard([...ctx.wizard.state.availableTimeZones, 'Готово']).oneTime().resize()
+        );
+        ctx.wizard.state.currentFilter = 'timeZone';
+        return ctx.wizard.next();
+      case 'Программа для связи':
         ctx.wizard.state.availableCommunicationTools = [...communicationOptions];
         ctx.wizard.state.searchCriteria.communicationTool = [];
         await ctx.reply(
@@ -387,19 +491,24 @@ const findWizard = new Scenes.WizardScene(
         ctx.wizard.state.currentFilter = 'communicationTool';
         return ctx.wizard.next();
       default:
-        await ctx.reply('Пожалуйста, выберите критерий из списка или нажмите "Готово".', Markup.keyboard(['Игра', 'Ранг', 'Время игры', 'Язык', 'Программа', 'Готово']).oneTime().resize());
+        await ctx.reply('Пожалуйста, выберите критерий из списка или нажмите "Готово".', Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize());
         return; // Остаемся на том же шаге
     }
   },
   async (ctx) => {
     // Обработка выбора значений для критериев (кроме рангов)
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите из списка или нажмите "Готово".');
+      return;
+    }
     const currentFilter = ctx.wizard.state.currentFilter;
     const value = ctx.message.text;
     if (value === 'Готово') {
       // Возвращаемся к выбору критериев
       await ctx.reply(
         'Выберите дополнительные критерии или нажмите "Готово" для начала поиска.',
-        Markup.keyboard(['Игра', 'Ранг', 'Время игры', 'Язык', 'Программа', 'Готово']).oneTime().resize()
+        Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize()
       );
       return ctx.wizard.selectStep(1);
     }
@@ -417,6 +526,12 @@ const findWizard = new Scenes.WizardScene(
       case 'communicationTool':
         availableOptions = ctx.wizard.state.availableCommunicationTools;
         break;
+      case 'timeZone':
+        availableOptions = ctx.wizard.state.availableTimeZones;
+        break;
+      case 'gender':
+        availableOptions = genderOptions;
+        break;
       default:
         await ctx.reply('Произошла ошибка. Пожалуйста, начните поиск заново.', Markup.removeKeyboard());
         return ctx.scene.leave();
@@ -428,19 +543,30 @@ const findWizard = new Scenes.WizardScene(
       );
       return; // Остаемся на том же шаге
     }
-    // Добавляем выбранное значение в критерии поиска и удаляем из доступных опций
-    if (!ctx.wizard.state.searchCriteria[currentFilter].includes(value)) {
-      ctx.wizard.state.searchCriteria[currentFilter].push(value);
-      availableOptions.splice(availableOptions.indexOf(value), 1);
+    // Добавляем выбранное значение в критерии поиска
+    if (currentFilter === 'gender') {
+      ctx.wizard.state.searchCriteria[currentFilter] = value;
+    } else {
+      if (!ctx.wizard.state.searchCriteria[currentFilter].includes(value)) {
+        ctx.wizard.state.searchCriteria[currentFilter].push(value);
+        if (currentFilter !== 'gender') {
+          availableOptions.splice(availableOptions.indexOf(value), 1);
+        }
+      }
     }
     await ctx.reply(
-      `Вы выбрали: ${ctx.wizard.state.searchCriteria[currentFilter].join(', ')}.\nВыберите еще или нажмите "Готово" для завершения.`,
+      `Вы выбрали: ${Array.isArray(ctx.wizard.state.searchCriteria[currentFilter]) ? ctx.wizard.state.searchCriteria[currentFilter].join(', ') : ctx.wizard.state.searchCriteria[currentFilter]}.\nВыберите еще или нажмите "Готово" для завершения.`,
       Markup.keyboard([...availableOptions, 'Готово']).oneTime().resize()
     );
     return; // Остаемся на этом шаге
   },
   async (ctx) => {
     // Шаг выбора рангов для выбранных игр
+    // Проверяем наличие ctx.message и ctx.message.text
+    if (!ctx.message || !ctx.message.text) {
+      await ctx.reply('Пожалуйста, выберите ранг из списка.');
+      return;
+    }
     const currentGameIndex = ctx.wizard.state.currentGameIndex;
     const selectedGames = ctx.wizard.state.searchCriteria.games;
     const currentGame = selectedGames[currentGameIndex];
@@ -455,7 +581,7 @@ const findWizard = new Scenes.WizardScene(
         // Возвращаемся к выбору критериев
         await ctx.reply(
           'Выберите дополнительные критерии или нажмите "Готово" для начала поиска.',
-          Markup.keyboard(['Игра', 'Ранг', 'Время игры', 'Язык', 'Программа', 'Готово']).oneTime().resize()
+          Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize()
         );
         return ctx.wizard.selectStep(1);
       }
@@ -482,7 +608,7 @@ const findWizard = new Scenes.WizardScene(
       // Все ранги собраны, возвращаемся к выбору критериев
       await ctx.reply(
         'Выберите дополнительные критерии или нажмите "Готово" для начала поиска.',
-        Markup.keyboard(['Игра', 'Ранг', 'Время игры', 'Язык', 'Программа', 'Готово']).oneTime().resize()
+        Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize()
       );
       return ctx.wizard.selectStep(1);
     }
@@ -506,8 +632,34 @@ const stage = new Scenes.Stage([registrationWizard, findWizard]);
 bot.use(session());
 bot.use(stage.middleware());
 
+// Установка команд бота для меню
+bot.telegram.setMyCommands([
+  { command: 'start', description: 'Начать работу с ботом' },
+  { command: 'register', description: 'Зарегистрироваться или обновить профиль' },
+  { command: 'find', description: 'Найти тиммейтов' },
+  { command: 'profile', description: 'Просмотреть свой профиль' },
+  { command: 'help', description: 'Показать список команд' },
+]);
+
+// Промежуточное ПО для обработки только текстовых сообщений
+bot.use((ctx, next) => {
+  if (ctx.message && ctx.message.text) {
+    return next();
+  } else {
+    // Игнорируем обновления, не содержащие текстовых сообщений
+    return;
+  }
+});
+
 // Обработчики команд
-bot.start((ctx) => ctx.reply('Привет! Я бот для поиска тиммейтов. Используй /register для создания профиля.'));
+bot.start((ctx) => ctx.reply(
+    '🔥 *Здравствуй, чемпион\\!* 🔥\n\n' +
+    'Готов собрать команду мечты? _Я здесь, чтобы помочь\\!_ 🚀\n\n' +
+    '👉 *Используй команду* `/help`, *чтобы узнать, что я могу\\.*\n\n' +
+    '*Время играть и побеждать\\!* 🎮',
+    { parse_mode: 'MarkdownV2' }
+));
+
 bot.command('register', (ctx) => ctx.scene.enter('registrationWizard'));
 bot.command('find', (ctx) => ctx.scene.enter('findWizard'));
 bot.command('profile', async (ctx) => {
@@ -516,13 +668,13 @@ bot.command('profile', async (ctx) => {
     await ctx.reply('У тебя еще нет профиля. Используй /register для создания.');
   } else {
     await ctx.reply(
-      `Твой профиль:\nВозраст: ${user.age}\nИгры: ${user.games.join(', ')}\nРанги: ${user.ranks.join(', ')}\nВремя игры: ${user.playTime.join(', ')}\nЯзык: ${user.language.join(', ')}\nПрограммы для общения: ${user.communicationTool.join(', ')}`
+      `Твой профиль:\nВозраст: ${user.age}\nПол: ${user.gender}\nИгры: ${user.games.join(', ')}\nРанги: ${user.ranks.join(', ')}\nВремя игры: ${user.playTime.join(', ')}\nЯзык: ${user.language.join(', ')}\nЧасовой пояс: ${user.timeZone}\nПрограммы для общения: ${user.communicationTool.join(', ')}`
     );
   }
 });
 bot.command('help', (ctx) => {
   ctx.reply(
-    '/start - Начать работу с ботом\n/register - Зарегистрироваться или обновить профиль\n/find - Найти тиммейтов\n/profile - Просмотреть свой профиль\n/help - Показать это сообщение'
+    '/start - Начать работу с ботом\n/register - Зарегистрироваться или обновить профиль\n/find - Найти тиммейтов\n/profile - Просмотреть свой профиль\n/help - Показать список команд'
   );
 });
 
@@ -532,5 +684,8 @@ bot.launch().then(() => {
 });
 
 // Обработка ошибок
+bot.catch((err, ctx) => {
+  console.error(`Произошла ошибка при обработке обновления ${ctx.update.update_id}:`, err);
+});
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
