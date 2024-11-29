@@ -2,6 +2,7 @@ require('dotenv').config();
 const { Telegraf, Scenes, session, Markup } = require('telegraf');
 const mongoose = require('mongoose');
 const User = require('./models/User');
+const Review = require('./models/Review'); // Убедитесь, что эта модель создана
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
@@ -71,6 +72,22 @@ const gameRanks = {
   // Для остальных игр ранги по умолчанию от 1 до 5
 };
 
+// Функция для экранирования HTML
+function escapeHTML(str) {
+  if (typeof str !== 'string') {
+    return '';
+  }
+  return str.replace(/[&<>"]/g, function(tag) {
+    const charsToReplace = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;'
+    };
+    return charsToReplace[tag] || tag;
+  });
+}
+
 // Создаем сцену регистрации
 const registrationWizard = new Scenes.WizardScene(
   'registrationWizard',
@@ -79,7 +96,6 @@ const registrationWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
-    // Проверяем наличие ctx.message и ctx.message.text
     if (!ctx.message || !ctx.message.text) {
       await ctx.reply('Пожалуйста, введите ваш возраст числом.');
       return;
@@ -91,7 +107,6 @@ const registrationWizard = new Scenes.WizardScene(
       return;
     }
     ctx.wizard.state.data.age = age;
-    // Добавляем выбор пола
     await ctx.reply(
       'Укажи свой пол:',
       Markup.keyboard(genderOptions).oneTime().resize()
@@ -99,7 +114,6 @@ const registrationWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
-    // Проверяем наличие ctx.message и ctx.message.text
     if (!ctx.message || !ctx.message.text) {
       await ctx.reply('Пожалуйста, выберите пол из списка.');
       return;
@@ -110,11 +124,9 @@ const registrationWizard = new Scenes.WizardScene(
       return;
     }
     ctx.wizard.state.data.gender = gender;
-    // Инициализируем массивы для игр и рангов
-    ctx.wizard.state.data.games = [];
-    ctx.wizard.state.data.ranks = [];
-    ctx.wizard.state.availableGames = [...availableGames]; // Копируем список доступных игр
-    // Начинаем выбор игр
+    ctx.wizard.state.selectedGames = [];
+    ctx.wizard.state.selectedRanks = [];
+    ctx.wizard.state.availableGames = [...availableGames];
     await ctx.reply(
       'Выбери игру из списка:',
       Markup.keyboard([...ctx.wizard.state.availableGames, 'Готово'])
@@ -124,88 +136,90 @@ const registrationWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
-    // Проверяем наличие ctx.message и ctx.message.text
     if (!ctx.message || !ctx.message.text) {
       await ctx.reply('Пожалуйста, выберите игру из списка или нажмите "Готово".');
       return;
     }
     const game = ctx.message.text;
     if (game === 'Готово') {
-      if (ctx.wizard.state.data.games.length === 0) {
+      if (ctx.wizard.state.selectedGames.length === 0) {
         await ctx.reply('Вы не выбрали ни одной игры. Пожалуйста, выберите хотя бы одну игру.');
-        return; // Остаемся на том же шаге
+        return;
       }
-      // Переходим к следующему шагу
-      ctx.wizard.state.currentGameIndex = 0; // Индекс текущей игры для запроса ранга
-      // Переходим к запросу рангов
-      const currentGame = ctx.wizard.state.data.games[ctx.wizard.state.currentGameIndex];
+      ctx.wizard.state.currentGameIndex = 0;
+      const currentGame = ctx.wizard.state.selectedGames[ctx.wizard.state.currentGameIndex];
       const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5'];
       await ctx.reply(
         `Какой ранг в ${currentGame}?`,
-        Markup.keyboard(ranksForGame).oneTime().resize()
+        Markup.keyboard([...ranksForGame, 'Пропустить']).oneTime().resize()
       );
-      return ctx.wizard.selectStep(4); // Переходим к шагу запроса рангов
+      return ctx.wizard.next();
     }
     if (!ctx.wizard.state.availableGames.includes(game)) {
       await ctx.reply(
         'Пожалуйста, выберите игру из списка или нажмите "Готово" для завершения выбора.',
         Markup.keyboard([...ctx.wizard.state.availableGames, 'Готово']).oneTime().resize()
       );
-      return; // Остаемся на том же шаге
+      return;
     }
-    // Добавляем игру в список и удаляем из доступных игр
-    if (!ctx.wizard.state.data.games.includes(game)) {
-      ctx.wizard.state.data.games.push(game);
+    if (!ctx.wizard.state.selectedGames.includes(game)) {
+      ctx.wizard.state.selectedGames.push(game);
       ctx.wizard.state.availableGames = ctx.wizard.state.availableGames.filter(g => g !== game);
     }
-    // Если нет больше доступных игр, автоматически переходим к следующему шагу
     if (ctx.wizard.state.availableGames.length === 0) {
       await ctx.reply('Вы выбрали все доступные игры.');
       ctx.wizard.state.currentGameIndex = 0;
-      const currentGame = ctx.wizard.state.data.games[ctx.wizard.state.currentGameIndex];
+      const currentGame = ctx.wizard.state.selectedGames[ctx.wizard.state.currentGameIndex];
       const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5'];
       await ctx.reply(
         `Какой ранг в ${currentGame}?`,
-        Markup.keyboard(ranksForGame).oneTime().resize()
+        Markup.keyboard([...ranksForGame, 'Пропустить']).oneTime().resize()
       );
-      return ctx.wizard.selectStep(4); // Переходим к шагу запроса рангов
+      return ctx.wizard.next();
     } else {
       await ctx.reply(
-        `Вы выбрали: ${ctx.wizard.state.data.games.join(', ')}.\nВыберите еще игру или нажмите "Готово" для завершения.`,
+        `Вы выбрали: ${ctx.wizard.state.selectedGames.join(', ')}.\nВыберите еще игру или нажмите "Готово" для завершения.`,
         Markup.keyboard([...ctx.wizard.state.availableGames, 'Готово']).oneTime().resize()
       );
-      return; // Остаемся на этом шаге
+      return;
     }
   },
   async (ctx) => {
-    // Проверяем наличие ctx.message и ctx.message.text
+    // Сбор рангов для выбранных игр
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите ранг из списка.');
+      await ctx.reply('Пожалуйста, выберите ранг из списка или нажмите "Пропустить".');
       return;
     }
-    const currentGame = ctx.wizard.state.data.games[ctx.wizard.state.currentGameIndex];
-    const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5'];
     const rank = ctx.message.text.trim();
-    if (!ranksForGame.includes(rank)) {
+    const currentGame = ctx.wizard.state.selectedGames[ctx.wizard.state.currentGameIndex];
+    const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5', 'Пропустить'];
+
+    if (rank === 'Пропустить') {
+      ctx.wizard.state.selectedRanks.push(null); // Помечаем, что ранг не выбран
+    } else if (!ranksForGame.includes(rank)) {
       await ctx.reply(
-        `Пожалуйста, выберите ранг для ${currentGame} из списка.`,
-        Markup.keyboard(ranksForGame).oneTime().resize()
+        `Пожалуйста, выберите ранг для ${currentGame} из списка или нажмите "Пропустить".`,
+        Markup.keyboard([...ranksForGame, 'Пропустить']).oneTime().resize()
       );
-      return; // Остаемся на том же шаге
+      return;
+    } else {
+      ctx.wizard.state.selectedRanks.push(rank);
     }
-    ctx.wizard.state.data.ranks.push(rank);
+
     ctx.wizard.state.currentGameIndex += 1;
-    if (ctx.wizard.state.currentGameIndex < ctx.wizard.state.data.games.length) {
-      // Запрашиваем ранг для следующей игры
-      const nextGame = ctx.wizard.state.data.games[ctx.wizard.state.currentGameIndex];
+    if (ctx.wizard.state.currentGameIndex < ctx.wizard.state.selectedGames.length) {
+      const nextGame = ctx.wizard.state.selectedGames[ctx.wizard.state.currentGameIndex];
       const nextRanksForGame = gameRanks[nextGame] || ['1', '2', '3', '4', '5'];
       await ctx.reply(
         `Какой ранг в ${nextGame}?`,
-        Markup.keyboard(nextRanksForGame).oneTime().resize()
+        Markup.keyboard([...nextRanksForGame, 'Пропустить']).oneTime().resize()
       );
-      return; // Остаемся на этом же шаге
+      return;
     } else {
-      // Все ранги собраны, переходим к выбору времени игры
+      ctx.wizard.state.data.gameRanks = ctx.wizard.state.selectedGames.map((game, index) => ({
+        game,
+        rank: ctx.wizard.state.selectedRanks[index]
+      }));
       ctx.wizard.state.data.playTime = [];
       ctx.wizard.state.availablePlayTimes = [...playTimeOptions];
       await ctx.reply(
@@ -217,7 +231,6 @@ const registrationWizard = new Scenes.WizardScene(
   },
   async (ctx) => {
     // Шаг выбора времени игры
-    // Проверяем наличие ctx.message и ctx.message.text
     if (!ctx.message || !ctx.message.text) {
       await ctx.reply('Пожалуйста, выберите время игры из списка или нажмите "Готово".');
       return;
@@ -226,9 +239,8 @@ const registrationWizard = new Scenes.WizardScene(
     if (playTime === 'Готово') {
       if (ctx.wizard.state.data.playTime.length === 0) {
         await ctx.reply('Вы не выбрали ни одного времени игры. Пожалуйста, выберите хотя бы один вариант.');
-        return; // Остаемся на том же шаге
+        return;
       }
-      // Переходим к выбору языка
       ctx.wizard.state.data.language = [];
       ctx.wizard.state.availableLanguages = [...languageOptions];
       await ctx.reply(
@@ -242,9 +254,8 @@ const registrationWizard = new Scenes.WizardScene(
         'Пожалуйста, выберите время игры из списка или нажмите "Готово" для завершения выбора.',
         Markup.keyboard([...ctx.wizard.state.availablePlayTimes, 'Готово']).oneTime().resize()
       );
-      return; // Остаемся на том же шаге
+      return;
     }
-    // Добавляем время игры в список и удаляем из доступных
     if (!ctx.wizard.state.data.playTime.includes(playTime)) {
       ctx.wizard.state.data.playTime.push(playTime);
       ctx.wizard.state.availablePlayTimes = ctx.wizard.state.availablePlayTimes.filter(pt => pt !== playTime);
@@ -253,11 +264,10 @@ const registrationWizard = new Scenes.WizardScene(
       `Вы выбрали: ${ctx.wizard.state.data.playTime.join(', ')}.\nВыберите еще или нажмите "Готово" для завершения.`,
       Markup.keyboard([...ctx.wizard.state.availablePlayTimes, 'Готово']).oneTime().resize()
     );
-    return; // Остаемся на этом шаге
+    return;
   },
   async (ctx) => {
     // Шаг выбора языка
-    // Проверяем наличие ctx.message и ctx.message.text
     if (!ctx.message || !ctx.message.text) {
       await ctx.reply('Пожалуйста, выберите язык из списка или нажмите "Готово".');
       return;
@@ -266,9 +276,8 @@ const registrationWizard = new Scenes.WizardScene(
     if (language === 'Готово') {
       if (ctx.wizard.state.data.language.length === 0) {
         await ctx.reply('Вы не выбрали ни одного языка. Пожалуйста, выберите хотя бы один вариант.');
-        return; // Остаемся на том же шаге
+        return;
       }
-      // Переходим к выбору программ для общения
       ctx.wizard.state.data.communicationTool = [];
       ctx.wizard.state.availableCommunicationTools = [...communicationOptions];
       await ctx.reply(
@@ -282,9 +291,8 @@ const registrationWizard = new Scenes.WizardScene(
         'Пожалуйста, выберите язык из списка или нажмите "Готово" для завершения выбора.',
         Markup.keyboard([...ctx.wizard.state.availableLanguages, 'Готово']).oneTime().resize()
       );
-      return; // Остаемся на том же шаге
+      return;
     }
-    // Добавляем язык в список и удаляем из доступных
     if (!ctx.wizard.state.data.language.includes(language)) {
       ctx.wizard.state.data.language.push(language);
       ctx.wizard.state.availableLanguages = ctx.wizard.state.availableLanguages.filter(lang => lang !== language);
@@ -293,11 +301,10 @@ const registrationWizard = new Scenes.WizardScene(
       `Вы выбрали: ${ctx.wizard.state.data.language.join(', ')}.\nВыберите еще или нажмите "Готово" для завершения.`,
       Markup.keyboard([...ctx.wizard.state.availableLanguages, 'Готово']).oneTime().resize()
     );
-    return; // Остаемся на этом шаге
+    return;
   },
   async (ctx) => {
     // Шаг выбора программ для общения
-    // Проверяем наличие ctx.message и ctx.message.text
     if (!ctx.message || !ctx.message.text) {
       await ctx.reply('Пожалуйста, выберите программу из списка или нажмите "Готово".');
       return;
@@ -306,9 +313,8 @@ const registrationWizard = new Scenes.WizardScene(
     if (tool === 'Готово') {
       if (ctx.wizard.state.data.communicationTool.length === 0) {
         await ctx.reply('Вы не выбрали ни одной программы. Пожалуйста, выберите хотя бы один вариант.');
-        return; // Остаемся на том же шаге
+        return;
       }
-      // Переходим к выбору часового пояса
       await ctx.reply(
         'Выберите свой часовой пояс:',
         Markup.keyboard(timeZoneOptions).oneTime().resize()
@@ -320,9 +326,8 @@ const registrationWizard = new Scenes.WizardScene(
         'Пожалуйста, выберите программу из списка или нажмите "Готово" для завершения выбора.',
         Markup.keyboard([...ctx.wizard.state.availableCommunicationTools, 'Готово']).oneTime().resize()
       );
-      return; // Остаемся на том же шаге
+      return;
     }
-    // Добавляем программу в список и удаляем из доступных
     if (!ctx.wizard.state.data.communicationTool.includes(tool)) {
       ctx.wizard.state.data.communicationTool.push(tool);
       ctx.wizard.state.availableCommunicationTools = ctx.wizard.state.availableCommunicationTools.filter(t => t !== tool);
@@ -331,11 +336,10 @@ const registrationWizard = new Scenes.WizardScene(
       `Вы выбрали: ${ctx.wizard.state.data.communicationTool.join(', ')}.\nВыберите еще или нажмите "Готово" для завершения.`,
       Markup.keyboard([...ctx.wizard.state.availableCommunicationTools, 'Готово']).oneTime().resize()
     );
-    return; // Остаемся на этом шаге
+    return;
   },
   async (ctx) => {
     // Шаг выбора часового пояса
-    // Проверяем наличие ctx.message и ctx.message.text
     if (!ctx.message || !ctx.message.text) {
       await ctx.reply('Пожалуйста, выберите часовой пояс из списка.');
       return;
@@ -372,34 +376,46 @@ const registrationWizard = new Scenes.WizardScene(
 const findWizard = new Scenes.WizardScene(
   'findWizard',
   async (ctx) => {
+    console.log('findWizard Step 0');
     ctx.wizard.state.searchCriteria = {};
     ctx.wizard.state.selectedGames = [];
     ctx.wizard.state.selectedRanks = [];
     await ctx.reply(
       'Выберите критерии поиска (можно выбрать несколько):',
-      Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize()
+      Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа', 'Поиск']).oneTime().resize()
     );
     return ctx.wizard.next();
   },
   async (ctx) => {
-    // Проверяем наличие ctx.message и ctx.message.text
+    console.log('findWizard Step 1');
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите критерий из списка или нажмите "Готово".');
+      await ctx.reply('Пожалуйста, выберите критерий из списка или нажмите "Поиск".');
       return;
     }
     const choice = ctx.message.text;
-    if (choice === 'Готово') {
+    console.log('User choice:', choice);
+    if (choice === 'Поиск') {
       if (Object.keys(ctx.wizard.state.searchCriteria).length === 0) {
         await ctx.reply('Вы не выбрали ни одного критерия. Пожалуйста, выберите хотя бы один.');
-        return; // Остаемся на том же шаге
+        return;
       }
       // Выполняем поиск
       const query = {};
+
       if (ctx.wizard.state.searchCriteria.games) {
-        query['games'] = { $in: ctx.wizard.state.searchCriteria.games };
-      }
-      if (ctx.wizard.state.searchCriteria.ranks) {
-        query['ranks'] = { $in: ctx.wizard.state.searchCriteria.ranks };
+        if (ctx.wizard.state.searchCriteria.gameRanks && ctx.wizard.state.searchCriteria.gameRanks.length > 0) {
+          // Ищем по комбинации игры и ранга
+          query['gameRanks'] = {
+            $elemMatch: {
+              $or: ctx.wizard.state.searchCriteria.gameRanks.map(gr => {
+                return { game: gr.game, rank: gr.rank };
+              })
+            }
+          };
+        } else {
+          // Ищем только по играм, независимо от ранга
+          query['gameRanks.game'] = { $in: ctx.wizard.state.searchCriteria.games };
+        }
       }
       if (ctx.wizard.state.searchCriteria.gender) {
         query['gender'] = ctx.wizard.state.searchCriteria.gender;
@@ -416,22 +432,29 @@ const findWizard = new Scenes.WizardScene(
       if (ctx.wizard.state.searchCriteria.communicationTool) {
         query['communicationTool'] = { $in: ctx.wizard.state.searchCriteria.communicationTool };
       }
-      const results = await User.find(query).exec();
-      if (results.length === 0) {
-        await ctx.reply('Не найдено пользователей по вашему запросу.');
-      } else {
-        let response = 'Найдены следующие пользователи:\n';
-        results.forEach((user) => {
-          response += `\n👤 @${user.username || 'не указан'}\nВозраст: ${user.age}\nПол: ${user.gender}\nИгры: ${user.games.join(', ')}\nРанги: ${user.ranks.join(', ')}\nВремя игры: ${user.playTime.join(', ')}\nЯзык: ${user.language.join(', ')}\nЧасовой пояс: ${user.timeZone}\nПрограммы для общения: ${user.communicationTool.join(', ')}\n`;
-        });
-        await ctx.reply(response);
+
+      // Логирование для отладки
+      console.log('Search Criteria:', ctx.wizard.state.searchCriteria);
+      console.log('MongoDB Query:', JSON.stringify(query, null, 2));
+
+      try {
+        const results = await User.find(query).exec();
+        console.log('Search Results:', results);
+        ctx.wizard.state.searchResults = results;
+        // Вызов функции следующего шага напрямую
+        ctx.wizard.selectStep(4); // Устанавливаем шаг
+        return await ctx.wizard.steps[4](ctx); // Вызываем функцию шага
+      } catch (err) {
+        console.error('Ошибка при выполнении поиска:', err);
+        await ctx.reply('Произошла ошибка при выполнении поиска. Пожалуйста, попробуйте позже.');
+        return ctx.scene.leave();
       }
-      return ctx.scene.leave();
     }
     switch (choice) {
       case 'Игра':
         ctx.wizard.state.availableGames = [...availableGames];
         ctx.wizard.state.searchCriteria.games = [];
+        ctx.wizard.state.searchCriteria.gameRanks = [];
         await ctx.reply(
           'Выберите игру (можно выбрать несколько):',
           Markup.keyboard([...ctx.wizard.state.availableGames, 'Готово']).oneTime().resize()
@@ -440,18 +463,18 @@ const findWizard = new Scenes.WizardScene(
         return ctx.wizard.next();
       case 'Ранг':
         if (!ctx.wizard.state.searchCriteria.games || ctx.wizard.state.searchCriteria.games.length === 0) {
-          await ctx.reply('Сначала выберите игры, для которых хотите указать ранги.', Markup.keyboard(['Игра', 'Готово']).oneTime().resize());
-          return; // Остаемся на том же шаге
+          await ctx.reply('Сначала выберите игры, для которых хотите указать ранги.', Markup.keyboard(['Игра', 'Поиск']).oneTime().resize());
+          return;
         }
         ctx.wizard.state.currentGameIndex = 0;
-        ctx.wizard.state.searchCriteria.ranks = [];
-        await askForRank(ctx);
-        return ctx.wizard.selectStep(3); // Переходим к шагу выбора рангов
+        ctx.wizard.state.searchCriteria.gameRanks = [];
+        await askForRankSearch(ctx);
+        return ctx.wizard.selectStep(3);
       case 'Пол':
         ctx.wizard.state.currentFilter = 'gender';
         await ctx.reply(
           'Выберите пол:',
-          Markup.keyboard(genderOptions).oneTime().resize()
+          Markup.keyboard([...genderOptions, 'Готово']).oneTime().resize()
         );
         return ctx.wizard.next();
       case 'Время игры':
@@ -481,7 +504,7 @@ const findWizard = new Scenes.WizardScene(
         );
         ctx.wizard.state.currentFilter = 'timeZone';
         return ctx.wizard.next();
-      case 'Программа для связи':
+      case 'Программа':
         ctx.wizard.state.availableCommunicationTools = [...communicationOptions];
         ctx.wizard.state.searchCriteria.communicationTool = [];
         await ctx.reply(
@@ -491,24 +514,24 @@ const findWizard = new Scenes.WizardScene(
         ctx.wizard.state.currentFilter = 'communicationTool';
         return ctx.wizard.next();
       default:
-        await ctx.reply('Пожалуйста, выберите критерий из списка или нажмите "Готово".', Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize());
-        return; // Остаемся на том же шаге
+        await ctx.reply('Пожалуйста, выберите критерий из списка или нажмите "Поиск".', Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа', 'Поиск']).oneTime().resize());
+        return;
     }
   },
   async (ctx) => {
+    console.log('findWizard Step 2');
     // Обработка выбора значений для критериев (кроме рангов)
-    // Проверяем наличие ctx.message и ctx.message.text
     if (!ctx.message || !ctx.message.text) {
       await ctx.reply('Пожалуйста, выберите из списка или нажмите "Готово".');
       return;
     }
     const currentFilter = ctx.wizard.state.currentFilter;
     const value = ctx.message.text;
+    console.log(`User selected ${value} for ${currentFilter}`);
     if (value === 'Готово') {
-      // Возвращаемся к выбору критериев
       await ctx.reply(
-        'Выберите дополнительные критерии или нажмите "Готово" для начала поиска.',
-        Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize()
+        'Выберите критерии поиска (или нажмите "Поиск" для начала):',
+        Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа', 'Поиск']).oneTime().resize()
       );
       return ctx.wizard.selectStep(1);
     }
@@ -530,7 +553,7 @@ const findWizard = new Scenes.WizardScene(
         availableOptions = ctx.wizard.state.availableTimeZones;
         break;
       case 'gender':
-        availableOptions = genderOptions;
+        availableOptions = [...genderOptions, 'Готово'];
         break;
       default:
         await ctx.reply('Произошла ошибка. Пожалуйста, начните поиск заново.', Markup.removeKeyboard());
@@ -541,89 +564,125 @@ const findWizard = new Scenes.WizardScene(
         `Пожалуйста, выберите из списка или нажмите "Готово".`,
         Markup.keyboard([...availableOptions, 'Готово']).oneTime().resize()
       );
-      return; // Остаемся на том же шаге
+      return;
     }
-    // Добавляем выбранное значение в критерии поиска
     if (currentFilter === 'gender') {
       ctx.wizard.state.searchCriteria[currentFilter] = value;
+    } else if (currentFilter === 'games') {
+      if (!ctx.wizard.state.searchCriteria.games.includes(value)) {
+        ctx.wizard.state.searchCriteria.games.push(value);
+        ctx.wizard.state.availableGames = ctx.wizard.state.availableGames.filter(g => g !== value);
+      }
     } else {
       if (!ctx.wizard.state.searchCriteria[currentFilter].includes(value)) {
         ctx.wizard.state.searchCriteria[currentFilter].push(value);
-        if (currentFilter !== 'gender') {
-          availableOptions.splice(availableOptions.indexOf(value), 1);
-        }
+        availableOptions.splice(availableOptions.indexOf(value), 1);
       }
     }
     await ctx.reply(
       `Вы выбрали: ${Array.isArray(ctx.wizard.state.searchCriteria[currentFilter]) ? ctx.wizard.state.searchCriteria[currentFilter].join(', ') : ctx.wizard.state.searchCriteria[currentFilter]}.\nВыберите еще или нажмите "Готово" для завершения.`,
       Markup.keyboard([...availableOptions, 'Готово']).oneTime().resize()
     );
-    return; // Остаемся на этом шаге
+    return;
   },
   async (ctx) => {
-    // Шаг выбора рангов для выбранных игр
-    // Проверяем наличие ctx.message и ctx.message.text
+    console.log('findWizard Step 3');
+    // Шаг выбора рангов для выбранных игр (в поиске)
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите ранг из списка.');
+      await ctx.reply('Пожалуйста, выберите ранг из списка или нажмите "Пропустить".');
       return;
     }
-    const currentGameIndex = ctx.wizard.state.currentGameIndex;
-    const selectedGames = ctx.wizard.state.searchCriteria.games;
-    const currentGame = selectedGames[currentGameIndex];
-    const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5'];
     const rank = ctx.message.text.trim();
-    if (rank === 'Готово') {
-      // Если пользователь нажал "Готово" до выбора рангов для всех игр
-      if (ctx.wizard.state.searchCriteria.ranks.length < selectedGames.length) {
-        await ctx.reply('Вы не выбрали ранги для всех выбранных игр. Пожалуйста, завершите выбор.', Markup.keyboard(ranksForGame).oneTime().resize());
-        return; // Остаемся на том же шаге
-      } else {
-        // Возвращаемся к выбору критериев
-        await ctx.reply(
-          'Выберите дополнительные критерии или нажмите "Готово" для начала поиска.',
-          Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize()
-        );
-        return ctx.wizard.selectStep(1);
-      }
-    }
-    if (!ranksForGame.includes(rank)) {
+    const currentGame = ctx.wizard.state.searchCriteria.games[ctx.wizard.state.currentGameIndex];
+    const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5', 'Пропустить'];
+
+    if (rank === 'Пропустить') {
+      // Если ранг не выбран, просто пропускаем
+    } else if (!ranksForGame.includes(rank)) {
       await ctx.reply(
-        `Пожалуйста, выберите ранг для ${currentGame} из списка.`,
-        Markup.keyboard([...ranksForGame, 'Готово']).oneTime().resize()
+        `Пожалуйста, выберите ранг для ${currentGame} из списка или нажмите "Пропустить".`,
+        Markup.keyboard([...ranksForGame, 'Пропустить']).oneTime().resize()
       );
-      return; // Остаемся на том же шаге
+      return;
+    } else {
+      ctx.wizard.state.searchCriteria.gameRanks.push({ game: currentGame, rank });
     }
-    ctx.wizard.state.searchCriteria.ranks.push(rank);
+
     ctx.wizard.state.currentGameIndex += 1;
-    if (ctx.wizard.state.currentGameIndex < selectedGames.length) {
-      // Запрашиваем ранг для следующей игры
-      const nextGame = selectedGames[ctx.wizard.state.currentGameIndex];
+    if (ctx.wizard.state.currentGameIndex < ctx.wizard.state.searchCriteria.games.length) {
+      const nextGame = ctx.wizard.state.searchCriteria.games[ctx.wizard.state.currentGameIndex];
       const nextRanksForGame = gameRanks[nextGame] || ['1', '2', '3', '4', '5'];
       await ctx.reply(
-        `Какой ранг в ${nextGame}?`,
-        Markup.keyboard([...nextRanksForGame, 'Готово']).oneTime().resize()
+        `Выберите ранг для ${nextGame}:`,
+        Markup.keyboard([...nextRanksForGame, 'Пропустить']).oneTime().resize()
       );
-      return; // Остаемся на этом шаге
+      return;
     } else {
-      // Все ранги собраны, возвращаемся к выбору критериев
       await ctx.reply(
-        'Выберите дополнительные критерии или нажмите "Готово" для начала поиска.',
-        Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа для связи', 'Готово']).oneTime().resize()
+        'Выберите критерии поиска (или нажмите "Поиск" для начала):',
+        Markup.keyboard(['Игра', 'Ранг', 'Пол', 'Время игры', 'Язык', 'Часовой пояс', 'Программа', 'Поиск']).oneTime().resize()
       );
       return ctx.wizard.selectStep(1);
     }
+  },
+  async (ctx) => {
+    console.log('findWizard Step 4 - Displaying results');
+    const results = ctx.wizard.state.searchResults;
+    if (results.length === 0) {
+      await ctx.reply('Не найдено пользователей по вашему запросу.');
+    } else {
+      for (const user of results) {
+        try {
+          console.log(`Processing user: ${user.telegramId}`);
+          // Получаем среднюю оценку пользователя
+          const reviews = await Review.find({ reviewedUserId: user.telegramId });
+          const averageRating = reviews.length ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1) : 'Нет оценок';
+
+          // Формируем сообщение с информацией о пользователе
+          let response = `<b>👤 @${escapeHTML(user.username) || 'не указан'}</b>\n`;
+          response += `<b>Возраст:</b> ${user.age}\n`;
+          response += `<b>Пол:</b> ${user.gender}\n`;
+          response += `<b>Игры и ранги:</b>\n`;
+
+          // Проверяем наличие gameRanks
+          if (user.gameRanks && user.gameRanks.length > 0) {
+            user.gameRanks.forEach((gr) => {
+              response += `• ${gr.game}: ${gr.rank || 'Не указан'}\n`;
+            });
+          } else {
+            response += 'Нет информации об играх и рангах.\n';
+          }
+
+          response += `<b>Время игры:</b> ${user.playTime.join(', ')}\n`;
+          response += `<b>Язык:</b> ${user.language.join(', ')}\n`;
+          response += `<b>Часовой пояс:</b> ${user.timeZone}\n`;
+          response += `<b>Программы для общения:</b> ${user.communicationTool.join(', ')}\n`;
+          response += `<b>Средняя оценка:</b> ${averageRating}\n`;
+
+          // Отправляем сообщение с кнопками
+          await ctx.replyWithHTML(response, Markup.inlineKeyboard([
+            [Markup.button.callback('Оставить отзыв', `leave_review_${user.telegramId}`)],
+            [Markup.button.callback('Просмотреть отзывы', `view_reviews_${user.telegramId}`)]
+          ]));
+          console.log(`Sent info for user: ${user.telegramId}`);
+        } catch (error) {
+          console.error('Ошибка при обработке пользователя:', error);
+        }
+      }
+    }
+    return ctx.scene.leave();
   }
 );
 
-// Функция для запроса ранга
-async function askForRank(ctx) {
+// Функции для запросов ранга в поиске
+async function askForRankSearch(ctx) {
   const currentGameIndex = ctx.wizard.state.currentGameIndex;
   const selectedGames = ctx.wizard.state.searchCriteria.games;
   const currentGame = selectedGames[currentGameIndex];
   const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5'];
   await ctx.reply(
     `Выберите ранг для ${currentGame}:`,
-    Markup.keyboard([...ranksForGame, 'Готово']).oneTime().resize()
+    Markup.keyboard([...ranksForGame, 'Пропустить']).oneTime().resize()
   );
 }
 
@@ -653,10 +712,10 @@ bot.use((ctx, next) => {
 
 // Обработчики команд
 bot.start((ctx) => ctx.reply(
-    '🔥 *Здравствуй, чемпион\\!* 🔥\n\n' +
-    'Готов собрать команду мечты? _Я здесь, чтобы помочь\\!_ 🚀\n\n' +
-    '👉 *Используй команду* `/help`, *чтобы узнать, что я могу\\.*\n\n' +
-    '*Время играть и побеждать\\!* 🎮',
+    '🔥 Здравствуй, чемпион\\! 🔥\n\n' +
+    'Готов собрать команду мечты? Я здесь, чтобы помочь\\! 🚀\n\n' +
+    '👉 Используй команду /register, **чтобы начать\\.**\n\n' +
+    'Время играть и побеждать\\! 🎮',
     { parse_mode: 'MarkdownV2' }
 ));
 
@@ -667,15 +726,90 @@ bot.command('profile', async (ctx) => {
   if (!user) {
     await ctx.reply('У тебя еще нет профиля. Используй /register для создания.');
   } else {
-    await ctx.reply(
-      `Твой профиль:\nВозраст: ${user.age}\nПол: ${user.gender}\nИгры: ${user.games.join(', ')}\nРанги: ${user.ranks.join(', ')}\nВремя игры: ${user.playTime.join(', ')}\nЯзык: ${user.language.join(', ')}\nЧасовой пояс: ${user.timeZone}\nПрограммы для общения: ${user.communicationTool.join(', ')}`
-    );
+    let response = `<b>Твой профиль:</b>\n`;
+    response += `<b>Возраст:</b> ${user.age}\n`;
+    response += `<b>Пол:</b> ${user.gender}\n`;
+    response += `<b>Игры и ранги:</b>\n`;
+
+    // Проверяем наличие gameRanks
+    if (user.gameRanks && user.gameRanks.length > 0) {
+      user.gameRanks.forEach((gr) => {
+        response += `• ${gr.game}: ${gr.rank || 'Не указан'}\n`;
+      });
+    } else {
+      response += 'Нет информации об играх и рангах.\n';
+    }
+
+    response += `<b>Время игры:</b> ${user.playTime.join(', ')}\n`;
+    response += `<b>Язык:</b> ${user.language.join(', ')}\n`;
+    response += `<b>Часовой пояс:</b> ${user.timeZone}\n`;
+    response += `<b>Программы для общения:</b> ${user.communicationTool.join(', ')}\n`;
+
+    await ctx.replyWithHTML(response);
   }
 });
 bot.command('help', (ctx) => {
   ctx.reply(
     '/start - Начать работу с ботом\n/register - Зарегистрироваться или обновить профиль\n/find - Найти тиммейтов\n/profile - Просмотреть свой профиль\n/help - Показать список команд'
   );
+});
+
+// Обработчик нажатий на кнопки
+bot.on('callback_query', async (ctx) => {
+  const data = ctx.callbackQuery.data;
+
+  if (data.startsWith('leave_review_')) {
+    const reviewedUserId = data.split('_')[2];
+    ctx.session.reviewedUserId = reviewedUserId;
+    await ctx.reply('Пожалуйста, введите вашу оценку от 1 до 5:');
+    // Переходим в режим ожидания оценки
+    ctx.session.waitingForRating = true;
+  } else if (data.startsWith('view_reviews_')) {
+    const reviewedUserId = data.split('_')[2];
+    const reviews = await Review.find({ reviewedUserId }).populate('reviewerUserId');
+    if (reviews.length === 0) {
+      await ctx.reply('У этого пользователя пока нет отзывов.');
+    } else {
+      let response = 'Отзывы о пользователе:\n';
+      reviews.forEach((review) => {
+        response += `\nОт @${review.reviewerUserId.username || 'не указан'}: ${review.rating}/5\n"${review.comment || 'Без комментария'}"\n`;
+      });
+      await ctx.reply(response);
+    }
+  }
+});
+
+// Обработчик ввода оценки и комментария
+bot.on('text', async (ctx, next) => {
+  if (ctx.session.waitingForRating) {
+    const rating = parseInt(ctx.message.text);
+    if (isNaN(rating) || rating < 1 || rating > 5) {
+      await ctx.reply('Пожалуйста, введите число от 1 до 5.');
+      return;
+    }
+    ctx.session.rating = rating;
+    await ctx.reply('Пожалуйста, оставьте комментарий (или напишите "Пропустить"):');
+    ctx.session.waitingForComment = true;
+    ctx.session.waitingForRating = false;
+  } else if (ctx.session.waitingForComment) {
+    const comment = ctx.message.text !== 'Пропустить' ? ctx.message.text : '';
+    // Сохраняем отзыв в базе данных
+    const review = new Review({
+      reviewerUserId: ctx.from.id,
+      reviewedUserId: ctx.session.reviewedUserId,
+      rating: ctx.session.rating,
+      comment: comment,
+    });
+    await review.save();
+    await ctx.reply('Спасибо за ваш отзыв!');
+    // Очищаем сессию
+    ctx.session.waitingForComment = false;
+    ctx.session.rating = null;
+    ctx.session.reviewedUserId = null;
+  } else {
+    // Если нет ожидания ввода оценки или комментария, передаем управление дальше
+    return next();
+  }
 });
 
 // Запуск бота

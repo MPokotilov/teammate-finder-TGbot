@@ -5,8 +5,12 @@ const userSchema = new mongoose.Schema({
   username: String,
   age: Number,
   gender: String,
-  games: [String],
-  ranks: [String],
+  gameRanks: [
+    {
+      game: String,
+      rank: String
+    }
+  ],
   playTime: [String],
   language: [String],
   timeZone: String,
