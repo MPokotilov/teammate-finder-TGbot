@@ -64,7 +64,18 @@ module.exports = {
         search: 'Search',
         english_button: 'English',
         russian_button: 'Русский',
-        ukrainian_button: 'Українська'
+        ukrainian_button: 'Українська',
+  
+        // Options (added)
+        gender_male: 'Male',
+        gender_female: 'Female',
+        playtime_day: 'Day',
+        playtime_night: 'Night',
+        playtime_morning: 'Morning',
+        playtime_evening: 'Evening',
+        lang_english_option: 'English',
+        lang_russian_option: 'Russian',
+        lang_ukrainian_option: 'Ukrainian'
       },
   
       ru: {
@@ -119,7 +130,7 @@ module.exports = {
         search_language_prompt: 'Выберите языки (несколько):',
         search_language_none: 'Выберите хотя бы один язык.',
         search_timezone_prompt: 'Выберите часовой пояс (несколько):',
-        search_timezone_none: 'Выберите хотя бы один часовой пояс.',
+        search_timezone_none: 'Выберите хотя бы один часовый пояс.',
         search_program_prompt: 'Выберите программы для общения (несколько):',
         search_program_none: 'Выберите хотя бы одну программу.',
         search_return_menu: 'Выберите дополнительные критерии или нажмите "Поиск" для начала.',
@@ -131,7 +142,18 @@ module.exports = {
         search: 'Поиск',
         english_button: 'English',
         russian_button: 'Русский',
-        ukrainian_button: 'Українська'
+        ukrainian_button: 'Українська',
+  
+        // Options (added)
+        gender_male: 'Мужской',
+        gender_female: 'Женский',
+        playtime_day: 'День',
+        playtime_night: 'Ночь',
+        playtime_morning: 'Утро',
+        playtime_evening: 'Вечер',
+        lang_english_option: 'Английский',
+        lang_russian_option: 'Русский',
+        lang_ukrainian_option: 'Украинский'
       },
   
       ua: {
@@ -198,7 +220,18 @@ module.exports = {
         search: 'Поиск',
         english_button: 'English',
         russian_button: 'Русский',
-        ukrainian_button: 'Українська'
+        ukrainian_button: 'Українська',
+  
+        // Options (added)
+        gender_male: 'Чоловіча',
+        gender_female: 'Жіноча',
+        playtime_day: 'День',
+        playtime_night: 'Ніч',
+        playtime_morning: 'Ранок',
+        playtime_evening: 'Вечір',
+        lang_english_option: 'Англійська',
+        lang_russian_option: 'Російська',
+        lang_ukrainian_option: 'Українська',
       }
     },
   
