@@ -16,6 +16,48 @@ const timeZoneOptions = [
   'UTC+12:00', 'UTC+13:00', 'UTC+14:00'
 ];
 
+const gameRanks = {
+  'CS2': [
+    'Серебро-1 (Silver I)',
+    'Серебро-2 (Silver II)',
+    'Серебро-3 (Silver III)',
+    'Серебро-4 (Silver IV)',
+    'Серебро-Элита (Silver Elite)',
+    'Серебро-Великий Магистр (Silver Elite Master)',
+    'Золотая Звезда-1 (Gold Nova I)',
+    'Золотая Звезда-2 (Gold Nova II)',
+    'Золотая Звезда-3 (Gold Nova III)',
+    'Золотая Звезда-Магистр (Gold Nova Master)',
+    'Магистр Хранитель-1 (Master Guardian I)',
+    'Магистр Хранитель-2 (Master Guardian II)',
+    'Магистр Хранитель-Элита (Master Guardian Elite)',
+    'Заслуженный Магистр-Хранитель (Distinguished Master Guardian)',
+    'Легендарный Беркут (Legendary Eagle)',
+    'Легендарный Беркут-Магистр (Legendary Eagle Master)',
+    'Великий Магистр-Высшего Ранга (Supreme Master First Class)',
+    'Всемирная Элита (Global Elite)'
+  ],
+  'RainbowSixSiege': [
+    'Copper (0 - 1,599 MMR)',
+    'Bronze (1,600 - 2,099 MMR)',
+    'Silver (2,100 - 2,599 MMR)',
+    'Gold (2,600 - 3,100 MMR)',
+    'Platinum (3,200 - 4,099 MMR)',
+    'Diamond (4,100 - 4,999 MMR)',
+    'Champions (5,000+ MMR)'
+  ],
+  'Dota2': [
+    'Herald (Рекрут)',
+    'Guardian (Страж)',
+    'Crusader (Рыцарь)',
+    'Archon (Герой)',
+    'Legend (Легенда)',
+    'Ancient (Властелин)',
+    'Divine (Божество)',
+    'Immortal (Титан)'
+  ]
+};
+
 const findWizard = new Scenes.WizardScene(
   'findWizard',
   async (ctx) => {
@@ -59,7 +101,7 @@ const findWizard = new Scenes.WizardScene(
 
       try {
         let results = await User.find(query).exec();
-        results = results.filter(u => u.telegramId !== ctx.from.id); // Убираем собственный профиль
+        results = results.filter(u => u.telegramId !== ctx.from.id);
         ctx.wizard.state.searchResults = results;
         ctx.wizard.selectStep(4);
         return await ctx.wizard.steps[4](ctx);
@@ -88,8 +130,8 @@ const findWizard = new Scenes.WizardScene(
         ctx.wizard.state.currentGameIndex = 0;
         ctx.wizard.state.searchCriteria.gameRanks = [];
         const currentGame = ctx.wizard.state.searchCriteria.games[0];
-        const ranksForGame = ['1','2','3','4','5','Пропустить'];
-        await ctx.reply(`Выберите ранг для ${currentGame}:`, Markup.keyboard([...ranksForGame,'Пропустить']).oneTime().resize());
+        const defaultRanksForGame = (gameRanks[currentGame] || ['1','2','3','4','5','Пропустить']);
+        await ctx.reply(`Выберите ранг для ${currentGame}:`, Markup.keyboard([...defaultRanksForGame,'Пропустить']).oneTime().resize());
         return ctx.wizard.selectStep(3);
       case 'Пол':
         ctx.wizard.state.currentFilter = 'gender';
@@ -187,21 +229,36 @@ const findWizard = new Scenes.WizardScene(
     if (currentFilter === 'gender') {
       ctx.wizard.state.searchCriteria[currentFilter] = value;
     } else if (currentFilter === 'games') {
+      if (!ctx.wizard.state.searchCriteria.games) ctx.wizard.state.searchCriteria.games = [];
       if (!ctx.wizard.state.searchCriteria.games.includes(value)) {
         ctx.wizard.state.searchCriteria.games.push(value);
+        // Сразу убираем выбранную игру из availableGames
         ctx.wizard.state.availableGames = ctx.wizard.state.availableGames.filter(g => g !== value);
       }
+      // После выбора игры, снова показываем обновленный список игр и "Готово"
+      if (ctx.wizard.state.availableGames.length > 0) {
+        await ctx.reply(
+          `Вы выбрали: ${ctx.wizard.state.searchCriteria.games.join(', ')}.\nВыберите еще игру или "Готово".`,
+          Markup.keyboard([...ctx.wizard.state.availableGames, 'Готово']).oneTime().resize()
+        );
+      } else {
+        await ctx.reply(
+          `Вы выбрали: ${ctx.wizard.state.searchCriteria.games.join(', ')}.\nВсе игры выбраны, нажмите "Готово" для продолжения.`,
+          Markup.keyboard(['Готово']).oneTime().resize()
+        );
+      }
+      return;
     } else {
       if (!ctx.wizard.state.searchCriteria[currentFilter]) ctx.wizard.state.searchCriteria[currentFilter] = [];
       if (!ctx.wizard.state.searchCriteria[currentFilter].includes(value)) {
         ctx.wizard.state.searchCriteria[currentFilter].push(value);
         availableOptions.splice(availableOptions.indexOf(value), 1);
       }
+      await ctx.reply(
+        `Вы выбрали: ${Array.isArray(ctx.wizard.state.searchCriteria[currentFilter]) ? ctx.wizard.state.searchCriteria[currentFilter].join(', ') : ctx.wizard.state.searchCriteria[currentFilter]}.\nВыберите еще или "Готово".`,
+        Markup.keyboard([...availableOptions, 'Готово']).oneTime().resize()
+      );
     }
-    await ctx.reply(
-      `Вы выбрали: ${Array.isArray(ctx.wizard.state.searchCriteria[currentFilter]) ? ctx.wizard.state.searchCriteria[currentFilter].join(', ') : ctx.wizard.state.searchCriteria[currentFilter]}.\nВыберите еще или "Готово".`,
-      Markup.keyboard([...availableOptions, 'Готово']).oneTime().resize()
-    );
     return;
   },
   async (ctx) => {
@@ -212,13 +269,13 @@ const findWizard = new Scenes.WizardScene(
     const rank = ctx.message.text.trim();
     const currentGameIndex = ctx.wizard.state.currentGameIndex || 0;
     const currentGame = ctx.wizard.state.searchCriteria.games[currentGameIndex];
-    const ranksForGame = ['1','2','3','4','5','Пропустить'];
+    const ranksForGame = gameRanks[currentGame] ? [...gameRanks[currentGame], 'Пропустить'] : ['1','2','3','4','5','Пропустить'];
     if (rank === 'Пропустить') {
       // пропускаем
     } else if (!ranksForGame.includes(rank)) {
       await ctx.reply(
         `Пожалуйста, выберите ранг для ${currentGame} или "Пропустить".`,
-        Markup.keyboard([...ranksForGame,'Пропустить']).oneTime().resize()
+        Markup.keyboard(ranksForGame).oneTime().resize()
       );
       return;
     } else {
@@ -229,10 +286,10 @@ const findWizard = new Scenes.WizardScene(
     ctx.wizard.state.currentGameIndex += 1;
     if (ctx.wizard.state.currentGameIndex < ctx.wizard.state.searchCriteria.games.length) {
       const nextGame = ctx.wizard.state.searchCriteria.games[ctx.wizard.state.currentGameIndex];
-      const nextRanksForGame = ['1','2','3','4','5','Пропустить'];
+      const nextRanksForGame = gameRanks[nextGame] ? [...gameRanks[nextGame], 'Пропустить'] : ['1','2','3','4','5','Пропустить'];
       await ctx.reply(
         `Выберите ранг для ${nextGame}:`,
-        Markup.keyboard([...nextRanksForGame,'Пропустить']).oneTime().resize()
+        Markup.keyboard(nextRanksForGame).oneTime().resize()
       );
       return; 
     } else {
@@ -246,7 +303,7 @@ const findWizard = new Scenes.WizardScene(
   async (ctx) => {
     const results = ctx.wizard.state.searchResults;
     if (results.length === 0) {
-      await ctx.reply('Не найдено пользователей по вашему запросу.');
+      await ctx.reply('Не найдено пользователей по вашему запросу.', Markup.removeKeyboard());
     } else {
       for (const user of results) {
         const reviews = await Review.find({ reviewedUserId: user.telegramId });
