@@ -4,10 +4,14 @@ const Match = require('../models/Match');
 const { sendUserProfileInfo } = require('./helpers_sendProfileInfo');
 
 async function checkForMatch(bot, likerId, likedId) {
-  try {
-    await Like.create({ likerId, likedId });
-  } catch (err) {
-    console.log('Ошибка при сохранении лайка (возможно уже есть лайк):', err);
+  const existingLike = await Like.findOne({ likerId, likedId });
+  if (!existingLike) {
+    try {
+      await Like.create({ likerId, likedId });
+    } catch (err) {
+      console.log('Ошибка при сохранении лайка (возможно уже есть лайк):', err);
+      // Если код дошёл сюда, значит лайк уже есть и это дубликат, можно игнорировать или логировать
+    }
   }
 
   const reverseLike = await Like.findOne({ likerId: likedId, likedId: likerId });

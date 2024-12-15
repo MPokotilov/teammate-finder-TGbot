@@ -58,7 +58,8 @@ const findWizard = new Scenes.WizardScene(
       if (ctx.wizard.state.searchCriteria.communicationTool) query['communicationTool'] = { $in: ctx.wizard.state.searchCriteria.communicationTool };
 
       try {
-        const results = await User.find(query).exec();
+        let results = await User.find(query).exec();
+        results = results.filter(u => u.telegramId !== ctx.from.id); // Убираем собственный профиль
         ctx.wizard.state.searchResults = results;
         ctx.wizard.selectStep(4);
         return await ctx.wizard.steps[4](ctx);
@@ -233,7 +234,7 @@ const findWizard = new Scenes.WizardScene(
         `Выберите ранг для ${nextGame}:`,
         Markup.keyboard([...nextRanksForGame,'Пропустить']).oneTime().resize()
       );
-      return;
+      return; 
     } else {
       await ctx.reply(
         'Выберите критерии поиска (или "Поиск"):',
