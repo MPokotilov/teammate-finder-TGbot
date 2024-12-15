@@ -1,9 +1,12 @@
 require('dotenv').config();
 const { Telegraf, session, Scenes } = require('telegraf');
 const mongoose = require('mongoose');
+const cron = require('node-cron');
 
 const registrationWizard = require('./scenes/registration');
 const findWizard = require('./scenes/find');
+const reportWizard = require('./scenes/report'); // <-- новый импорт
+
 const { setupCommands } = require('./handlers/commands');
 const { setupCallbackQueryHandler } = require('./handlers/callbackQuery');
 const { setupCron } = require('./utils/cron');
@@ -18,7 +21,7 @@ mongoose.connect(process.env.MONGODB_URI)
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-const stage = new Scenes.Stage([registrationWizard, findWizard]);
+const stage = new Scenes.Stage([registrationWizard, findWizard, reportWizard]);
 bot.use(session());
 bot.use(stage.middleware());
 
@@ -28,6 +31,7 @@ bot.telegram.setMyCommands([
   { command: 'find', description: 'Найти тиммейтов' },
   { command: 'profile', description: 'Просмотреть свой профиль' },
   { command: 'help', description: 'Показать список команд' },
+  { command: 'report', description: 'Отправить отчет о проблеме' }
 ]);
 
 setupCommands(bot);

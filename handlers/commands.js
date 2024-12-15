@@ -37,9 +37,16 @@ function setupCommands(bot) {
 
   bot.command('help', (ctx) => {
     ctx.reply(
-      '/start - Начать работу с ботом\n/register - Зарегистрироваться или обновить профиль\n/find - Найти тиммейтов\n/profile - Просмотреть свой профиль\n/help - Показать список команд'
+      '/start - Начать работу с ботом\n' +
+      '/register - Зарегистрироваться или обновить профиль\n' +
+      '/find - Найти тиммейтов\n' +
+      '/profile - Просмотреть свой профиль\n' +
+      '/help - Показать список команд\n' +
+      '/report - Сообщить о проблеме'
     );
   });
+
+  bot.command('report', (ctx) => ctx.scene.enter('reportWizard'));
 }
 
 module.exports = { setupCommands };
