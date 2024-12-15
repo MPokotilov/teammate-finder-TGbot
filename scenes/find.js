@@ -274,6 +274,7 @@ const findWizard = new Scenes.WizardScene(
           [Markup.button.callback('Просмотреть отзывы', `view_reviews_${user.telegramId}`)]
         ]));
       }
+      await ctx.reply('Поиск завершен.', Markup.removeKeyboard());
     }
     return ctx.scene.leave();
   }
