@@ -1,16 +1,17 @@
 const { Scenes } = require('telegraf');
+const { getText } = require('../utils/i18n');
 
 const ADMIN_ID = 665761170;
 
 const reportWizard = new Scenes.WizardScene(
   'reportWizard',
   async (ctx) => {
-    await ctx.reply('Опишите, пожалуйста, проблему, с которой вы столкнулись. Чем подробнее, тем лучше!');
+    await ctx.reply(getText(ctx, 'report_prompt'));
     return ctx.wizard.next();
   },
   async (ctx) => {
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, опишите вашу проблему текстом.');
+      await ctx.reply(getText(ctx, 'report_error'));
       return;
     }
     const problemText = ctx.message.text;
@@ -22,14 +23,18 @@ const reportWizard = new Scenes.WizardScene(
       username = `@id${fromId}`;
     }
 
-    const messageToAdmin = `Новый репорт о проблеме:\n\nОт: ${username}\nTelegramId: ${fromId}\n\nПроблема:\n${problemText}`;
-    // Отправляем админу
+    const messageToAdmin = getText(ctx, 'report_admin_message', {
+      username,
+      fromId,
+      problemText,
+    });
+
     try {
       await ctx.telegram.sendMessage(ADMIN_ID, messageToAdmin);
-      await ctx.reply('Спасибо за ваш отчет! Мы постараемся решить проблему в ближайшее время.');
+      await ctx.reply(getText(ctx, 'report_thanks'));
     } catch (e) {
       console.error('Ошибка при отправке отчета админу:', e);
-      await ctx.reply('Произошла ошибка при отправке отчета. Попробуйте позже.');
+      await ctx.reply(getText(ctx, 'error_msg'));
     }
     return ctx.scene.leave();
   }

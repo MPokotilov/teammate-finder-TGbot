@@ -1,46 +1,57 @@
 require('dotenv').config();
 const { Telegraf, session, Scenes } = require('telegraf');
 const mongoose = require('mongoose');
-const cron = require('node-cron');
+const { getText } = require('./utils/i18n');
 
 const registrationWizard = require('./scenes/registration');
 const findWizard = require('./scenes/find');
-const reportWizard = require('./scenes/report'); // <-- новый импорт
+const reportWizard = require('./scenes/report');
 
 const { setupCommands } = require('./handlers/commands');
 const { setupCallbackQueryHandler } = require('./handlers/callbackQuery');
-const { setupCron } = require('./utils/cron');
 
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('Успешно подключились к MongoDB');
-  })
-  .catch((error) => {
-    console.error('Ошибка подключения к MongoDB:', error);
-  });
+  .then(() => console.log('Успешно подключились к MongoDB'))
+  .catch((error) => console.error('Ошибка подключения к MongoDB:', error));
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
-
 const stage = new Scenes.Stage([registrationWizard, findWizard, reportWizard]);
+
 bot.use(session());
 bot.use(stage.middleware());
 
-bot.telegram.setMyCommands([
-  { command: 'start', description: 'Начать работу с ботом' },
-  { command: 'register', description: 'Зарегистрироваться или обновить профиль' },
-  { command: 'find', description: 'Найти тиммейтов' },
-  { command: 'profile', description: 'Просмотреть свой профиль' },
-  { command: 'help', description: 'Показать список команд' },
-  { command: 'report', description: 'Отправить отчет о проблеме' }
-]);
+// Prompt for language selection if not set
+bot.use(async (ctx, next) => {
+  if (!ctx.session.language) {
+    await ctx.reply(getText({ session: { language: 'en' } }, 'language_choice'), {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: getText({ session: { language: 'en' } }, 'english_button'), callback_data: 'lang_en' }],
+          [{ text: getText({ session: { language: 'ru' } }, 'russian_button'), callback_data: 'lang_ru' }],
+          [{ text: getText({ session: { language: 'ua' } }, 'ukrainian_button'), callback_data: 'lang_ua' }]
+        ]
+      }
+    });
+    return;
+  }
+  await next();
+});
+
+// Handle language selection
+bot.on('callback_query', async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  if (data.startsWith('lang_')) {
+    const lang = data.split('_')[1];
+    ctx.session.language = lang;
+    await ctx.reply(getText(ctx, 'language_selected', { lang: getText(ctx, `${lang}_button`) }));
+    return;
+  }
+});
 
 setupCommands(bot);
 setupCallbackQueryHandler(bot);
-setupCron(bot);
 
-bot.launch().then(() => {
-  console.log('Бот успешно запущен');
-});
+bot.launch().then(() => console.log('Бот успешно запущен'));
 
 bot.catch((err, ctx) => {
   console.error(`Произошла ошибка при обработке обновления ${ctx.update.update_id}:`, err);

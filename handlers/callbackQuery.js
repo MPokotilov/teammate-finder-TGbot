@@ -1,6 +1,7 @@
 const Review = require('../models/Review');
 const { checkForMatch } = require('../utils/helpers');
 const User = require('../models/User');
+const { getText } = require('../utils/i18n');
 
 function setupCallbackQueryHandler(bot) {
   bot.on('callback_query', async (ctx) => {
@@ -15,7 +16,7 @@ function setupCallbackQueryHandler(bot) {
       }
 
       const reviewedUser = await User.findOne({ telegramId: reviewedUserId }).exec();
-      let reviewedUsername = 'не указан';
+      let reviewedUsername = getText(ctx, 'not_specified');
       if (reviewedUser) {
         if (reviewedUser.username && reviewedUser.username.trim() !== '') {
           reviewedUsername = `@${reviewedUser.username}`;
@@ -26,14 +27,10 @@ function setupCallbackQueryHandler(bot) {
 
       const reviews = await Review.find({ reviewedUserId }).exec();
       if (reviews.length === 0) {
-        // Если это первая загрузка, скорее всего data = view_reviews_userId без страницы,
-        // значит мы пришли из кнопки "Просмотреть отзывы".
-        // Если нет отзывов, просто ответим пользователю:
         if (parts.length === 3) {
-          await ctx.reply(`У этого пользователя (${reviewedUsername}) пока нет отзывов.`);
+          await ctx.reply(getText(ctx, 'reviews_none', { username: reviewedUsername }));
         } else {
-          // Если пользователь листал страницы, то используем answerCallbackQuery, чтобы не было ошибок.
-          await ctx.answerCbQuery('Нет отзывов.', { show_alert: true });
+          await ctx.answerCbQuery(getText(ctx, 'reviews_no_pages'), { show_alert: true });
         }
       } else {
         const totalReviews = reviews.length;
@@ -46,10 +43,14 @@ function setupCallbackQueryHandler(bot) {
         const end = start + reviewsPerPage;
         const pageReviews = reviews.slice(start, end);
 
-        let response = `Отзывы о пользователе (${reviewedUsername}):\nСтраница ${page} из ${totalPages}\n`;
+        let response = getText(ctx, 'reviews_header', {
+          username: reviewedUsername,
+          page,
+          totalPages
+        });
         for (const review of pageReviews) {
           const userObj = await User.findOne({ telegramId: review.reviewerUserId }).exec();
-          let reviewerName = 'не указан';
+          let reviewerName = getText(ctx, 'not_specified');
           if (userObj) {
             if (userObj.username && userObj.username.trim() !== '') {
               reviewerName = `@${userObj.username}`;
@@ -57,7 +58,11 @@ function setupCallbackQueryHandler(bot) {
               reviewerName = `@id${userObj.telegramId}`;
             }
           }
-          response += `\nОт ${reviewerName}: ${review.rating}/5\n"${review.comment || 'Без комментария'}"\n`;
+          response += getText(ctx, 'review_entry', {
+            reviewer: reviewerName,
+            rating: review.rating,
+            comment: review.comment || getText(ctx, 'no_comment')
+          });
         }
 
         const inlineKeyboard = [];
@@ -72,16 +77,14 @@ function setupCallbackQueryHandler(bot) {
           inlineKeyboard.push(navButtons);
         }
 
-        // Определяем, был ли это первый запрос (т.е. parts.length == 3) или перелистывание
         if (parts.length === 3) {
-          // Первый запрос из "Просмотреть отзывы"
           await ctx.reply(response, {
             reply_markup: {
               inline_keyboard: inlineKeyboard
-            }
+            },
+            parse_mode: 'HTML'
           });
         } else {
-          // Перелистывание страниц, используем editMessageText
           try {
             await ctx.editMessageText(response, {
               reply_markup: {
@@ -90,7 +93,7 @@ function setupCallbackQueryHandler(bot) {
               parse_mode: 'HTML'
             });
           } catch (e) {
-            console.error('Ошибка при editMessageText для отзывов:', e);
+            console.error('Error while editing review message:', e);
           }
         }
       }
@@ -99,7 +102,7 @@ function setupCallbackQueryHandler(bot) {
       const likedUserId = parseInt(data.split('_')[2], 10);
       const likerId = ctx.from.id;
       await checkForMatch(bot, likerId, likedUserId);
-      await ctx.reply('Вы отметили, что профиль вам понравился!');
+      await ctx.reply(getText(ctx, 'profile_liked'));
       await ctx.answerCbQuery();
     } else if (data.startsWith('rate_')) {
       const parts = data.split('_');
@@ -112,11 +115,13 @@ function setupCallbackQueryHandler(bot) {
       ctx.session.rating = rating;
       ctx.session.matchPair = `${userA}_${userB}`;
 
-      await ctx.reply('Хотите написать короткий комментарий об опыте игры?', {
+      await ctx.reply(getText(ctx, 'rate_comment_prompt'), {
         reply_markup: {
           inline_keyboard: [
-            [{ text: 'Да', callback_data: `comment_yes_${userA}_${userB}_${rating}` },
-             { text: 'Нет', callback_data: `comment_no_${userA}_${userB}_${rating}` }]
+            [
+              { text: getText(ctx, 'yes'), callback_data: `comment_yes_${userA}_${userB}_${rating}` },
+              { text: getText(ctx, 'no'), callback_data: `comment_no_${userA}_${userB}_${rating}` }
+            ]
           ]
         }
       });
@@ -131,7 +136,7 @@ function setupCallbackQueryHandler(bot) {
       ctx.session.rating = rating;
       ctx.session.matchPair = `${userA}_${userB}`;
       ctx.session.waitingForCommentChoice = false;
-      await ctx.reply('Напишите ваш комментарий:');
+      await ctx.reply(getText(ctx, 'comment_prompt'));
       await ctx.answerCbQuery();
     } else if (data.startsWith('comment_no_')) {
       const parts = data.split('_');
@@ -149,7 +154,7 @@ function setupCallbackQueryHandler(bot) {
       });
       await review.save();
 
-      await ctx.reply('Спасибо за ваш отзыв!');
+      await ctx.reply(getText(ctx, 'thanks_for_review'));
       ctx.session.rating = null;
       ctx.session.matchPair = null;
       ctx.session.waitingForCommentChoice = false;
@@ -170,7 +175,7 @@ function setupCallbackQueryHandler(bot) {
         comment,
       });
       await review.save();
-      await ctx.reply('Спасибо за ваш отзыв!');
+      await ctx.reply(getText(ctx, 'thanks_for_review'));
       ctx.session.waitingForComment = false;
       ctx.session.rating = null;
       ctx.session.matchPair = null;

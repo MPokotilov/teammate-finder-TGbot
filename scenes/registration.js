@@ -1,173 +1,104 @@
 const { Scenes, Markup } = require('telegraf');
 const User = require('../models/User');
-
-const availableGames = ['CS2', 'Rust', 'RainbowSixSiege', 'Dota2', 'Factorio'];
-const playTimeOptions = ['День', 'Ночь', 'Утро', 'Вечер'];
-const languageOptions = ['Английский', 'Русский', 'Украинский'];
-const communicationOptions = ['Discord', 'Skype', 'TeamSpeak', 'Telegram'];
-const genderOptions = ['Мужской', 'Женский'];
-const timeZoneOptions = [
-  'UTC−12:00', 'UTC−11:00', 'UTC−10:00', 'UTC−9:00', 'UTC−8:00', 'UTC−7:00',
-  'UTC−6:00', 'UTC−5:00', 'UTC−4:00', 'UTC−3:00', 'UTC−2:00', 'UTC−1:00',
-  'UTC±0:00', 'UTC+1:00', 'UTC+2:00', 'UTC+3:00', 'UTC+4:00', 'UTC+5:00',
-  'UTC+6:00', 'UTC+7:00', 'UTC+8:00', 'UTC+9:00', 'UTC+10:00', 'UTC+11:00',
-  'UTC+12:00', 'UTC+13:00', 'UTC+14:00'
-];
-const gameRanks = {
-    'CS2': [
-      'Серебро-1 (Silver I)',
-      'Серебро-2 (Silver II)',
-      'Серебро-3 (Silver III)',
-      'Серебро-4 (Silver IV)',
-      'Серебро-Элита (Silver Elite)',
-      'Серебро-Великий Магистр (Silver Elite Master)',
-      'Золотая Звезда-1 (Gold Nova I)',
-      'Золотая Звезда-2 (Gold Nova II)',
-      'Золотая Звезда-3 (Gold Nova III)',
-      'Золотая Звезда-Магистр (Gold Nova Master)',
-      'Магистр Хранитель-1 (Master Guardian I)',
-      'Магистр Хранитель-2 (Master Guardian II)',
-      'Магистр Хранитель-Элита (Master Guardian Elite)',
-      'Заслуженный Магистр-Хранитель (Distinguished Master Guardian)',
-      'Легендарный Беркут (Legendary Eagle)',
-      'Легендарный Беркут-Магистр (Legendary Eagle Master)',
-      'Великий Магистр-Высшего Ранга (Supreme Master First Class)',
-      'Всемирная Элита (Global Elite)'
-    ],
-    'RainbowSixSiege': [
-      'Copper (0 - 1,599 MMR)',
-      'Bronze (1,600 - 2,099 MMR)',
-      'Silver (2,100 - 2,599 MMR)',
-      'Gold (2,600 - 3,100 MMR)',
-      'Platinum (3,200 - 4,099 MMR)',
-      'Diamond (4,100 - 4,999 MMR)',
-      'Champions (5,000+ MMR)'
-    ],
-    'Dota2': [
-      'Herald (Рекрут)',
-      'Guardian (Страж)',
-      'Crusader (Рыцарь)',
-      'Archon (Герой)',
-      'Legend (Легенда)',
-      'Ancient (Властелин)',
-      'Divine (Божество)',
-      'Immortal (Титан)'
-    ]
-    // Для остальных игр ранги по умолчанию от 1 до 5
-  };
+const { getText } = require('../utils/i18n');
+const { availableGames, gameRanks } = require('../utils/gameOptions.js');
 
 const registrationWizard = new Scenes.WizardScene(
   'registrationWizard',
   async (ctx) => {
-    await ctx.reply('Привет! Давай создадим твой профиль. Сколько тебе лет?');
+    await ctx.reply(getText(ctx, 'reg_start'));
     return ctx.wizard.next();
   },
   async (ctx) => {
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, введите ваш возраст числом.');
+      await ctx.reply(getText(ctx, 'reg_age_error'));
       return;
     }
     ctx.wizard.state.data = {};
     const age = parseInt(ctx.message.text);
     if (isNaN(age) || age <= 0) {
-      await ctx.reply('Пожалуйста, введите корректный возраст.');
+      await ctx.reply(getText(ctx, 'reg_age_error'));
       return;
     }
     ctx.wizard.state.data.age = age;
     await ctx.reply(
-      'Укажи свой пол:',
-      Markup.keyboard(genderOptions).oneTime().resize()
+      getText(ctx, 'reg_gender_prompt'),
+      Markup.keyboard(getText(ctx, 'gender_options')).oneTime().resize()
     );
     return ctx.wizard.next();
   },
   async (ctx) => {
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите пол из списка.');
+      await ctx.reply(getText(ctx, 'reg_gender_error'));
       return;
     }
     const gender = ctx.message.text;
-    if (!genderOptions.includes(gender)) {
-      await ctx.reply('Пожалуйста, выбери пол из списка.', Markup.keyboard(genderOptions).oneTime().resize());
+    if (!getText(ctx, 'gender_options').includes(gender)) {
+      await ctx.reply(getText(ctx, 'reg_gender_error'), Markup.keyboard(getText(ctx, 'gender_options')).oneTime().resize());
       return;
     }
     ctx.wizard.state.data.gender = gender;
     ctx.wizard.state.data.games = [];
     ctx.wizard.state.data.ranks = [];
-    ctx.wizard.state.availableGames = [...availableGames];
+    ctx.wizard.state.availableGames = availableGames;
     await ctx.reply(
-      'Выбери игру из списка:',
-      Markup.keyboard([...ctx.wizard.state.availableGames, 'Готово']).oneTime().resize()
+      getText(ctx, 'reg_games_prompt'),
+      Markup.keyboard([...ctx.wizard.state.availableGames, getText(ctx, 'done')]).oneTime().resize()
     );
     return ctx.wizard.next();
   },
   async (ctx) => {
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите игру или "Готово".');
+      await ctx.reply(getText(ctx, 'reg_games_none'));
       return;
     }
     const game = ctx.message.text;
-    if (game === 'Готово') {
+    if (game === getText(ctx, 'done')) {
       if (ctx.wizard.state.data.games.length === 0) {
-        await ctx.reply('Вы не выбрали ни одной игры. Пожалуйста, выберите хотя бы одну игру.');
+        await ctx.reply(getText(ctx, 'reg_games_none'));
         return;
       }
       ctx.wizard.state.currentGameIndex = 0;
       const currentGame = ctx.wizard.state.data.games[0];
-      const ranksForGame = gameRanks[currentGame] || ['1','2','3','4','5'];
+      const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5'];
       await ctx.reply(
-        `Какой ранг в ${currentGame}?`,
-        Markup.keyboard([...ranksForGame, 'Пропустить']).oneTime().resize()
+        getText(ctx, 'reg_rank_prompt', { game: currentGame }),
+        Markup.keyboard([...ranksForGame, getText(ctx, 'skip')]).oneTime().resize()
       );
       return ctx.wizard.selectStep(4);
     }
     if (!ctx.wizard.state.availableGames.includes(game)) {
       await ctx.reply(
-        'Пожалуйста, выберите игру из списка или "Готово".',
-        Markup.keyboard([...ctx.wizard.state.availableGames, 'Готово']).oneTime().resize()
+        getText(ctx, 'reg_games_prompt'),
+        Markup.keyboard([...ctx.wizard.state.availableGames, getText(ctx, 'done')]).oneTime().resize()
       );
       return;
     }
-    if (!ctx.wizard.state.data.games) ctx.wizard.state.data.games = [];
-    if (!ctx.wizard.state.data.games.includes(game)) {
-      ctx.wizard.state.data.games.push(game);
-      ctx.wizard.state.availableGames = ctx.wizard.state.availableGames.filter(g => g !== game);
-    }
-    if (ctx.wizard.state.availableGames.length === 0) {
-      await ctx.reply('Вы выбрали все доступные игры.');
-      ctx.wizard.state.currentGameIndex = 0;
-      const currentGame = ctx.wizard.state.data.games[0];
-      const ranksForGame = gameRanks[currentGame] || ['1','2','3','4','5'];
-      await ctx.reply(
-        `Какой ранг в ${currentGame}?`,
-        Markup.keyboard([...ranksForGame, 'Пропустить']).oneTime().resize()
-      );
-      return ctx.wizard.selectStep(4);
-    } else {
-      await ctx.reply(
-        `Вы выбрали: ${ctx.wizard.state.data.games.join(', ')}.\nВыберите еще игру или "Готово".`,
-        Markup.keyboard([...ctx.wizard.state.availableGames, 'Готово']).oneTime().resize()
-      );
-      return;
-    }
+    ctx.wizard.state.data.games.push(game);
+    ctx.wizard.state.availableGames = ctx.wizard.state.availableGames.filter((g) => g !== game);
+    await ctx.reply(
+      getText(ctx, 'reg_games_chosen', { games: ctx.wizard.state.data.games.join(', ') }),
+      Markup.keyboard([...ctx.wizard.state.availableGames, getText(ctx, 'done')]).oneTime().resize()
+    );
+    return;
   },
   async (ctx) => {
-    // Выбор рангов для каждой игры
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите ранг или "Пропустить".');
+      await ctx.reply(getText(ctx, 'reg_rank_error'));
       return;
     }
-    const rank = ctx.message.text.trim();
+    const rank = ctx.message.text;
     const currentGameIndex = ctx.wizard.state.currentGameIndex || 0;
     const currentGame = ctx.wizard.state.data.games[currentGameIndex];
-    const ranksForGame = gameRanks[currentGame] || ['1','2','3','4','5','Пропустить'];
+    const ranksForGame = gameRanks[currentGame] || ['1', '2', '3', '4', '5', getText(ctx, 'skip')];
 
     if (!ctx.wizard.state.data.ranks) ctx.wizard.state.data.ranks = [];
 
-    if (rank === 'Пропустить') {
+    if (rank === getText(ctx, 'skip')) {
       ctx.wizard.state.data.ranks.push(null);
     } else if (!ranksForGame.includes(rank)) {
       await ctx.reply(
-        `Пожалуйста, выберите ранг для ${currentGame} или "Пропустить".`,
+        getText(ctx, 'reg_rank_prompt', { game: currentGame }),
         Markup.keyboard(ranksForGame).oneTime().resize()
       );
       return;
@@ -178,154 +109,79 @@ const registrationWizard = new Scenes.WizardScene(
     ctx.wizard.state.currentGameIndex += 1;
     if (ctx.wizard.state.currentGameIndex < ctx.wizard.state.data.games.length) {
       const nextGame = ctx.wizard.state.data.games[ctx.wizard.state.currentGameIndex];
-      const nextRanksForGame = gameRanks[nextGame] || ['1','2','3','4','5','Пропустить'];
+      const nextRanksForGame = gameRanks[nextGame] || ['1', '2', '3', '4', '5', getText(ctx, 'skip')];
       await ctx.reply(
-        `Какой ранг в ${nextGame}?`,
-        Markup.keyboard([...nextRanksForGame,'Пропустить']).oneTime().resize()
+        getText(ctx, 'reg_rank_prompt', { game: nextGame }),
+        Markup.keyboard(nextRanksForGame).oneTime().resize()
       );
-      return; 
+      return;
     } else {
       ctx.wizard.state.data.gameRanks = ctx.wizard.state.data.games.map((g, i) => ({ game: g, rank: ctx.wizard.state.data.ranks[i] }));
       ctx.wizard.state.data.playTime = [];
-      ctx.wizard.state.availablePlayTimes = [...playTimeOptions];
       await ctx.reply(
-        'Выберите время игры (можно выбрать несколько вариантов):',
-        Markup.keyboard([...ctx.wizard.state.availablePlayTimes, 'Готово']).oneTime().resize()
+        getText(ctx, 'reg_playtime_prompt'),
+        Markup.keyboard([...getText(ctx, 'playtime_options'), getText(ctx, 'done')]).oneTime().resize()
       );
       return ctx.wizard.next();
     }
   },
   async (ctx) => {
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите время или "Готово".');
+      await ctx.reply(getText(ctx, 'reg_playtime_none'));
       return;
     }
     const playTime = ctx.message.text;
-    if (playTime === 'Готово') {
-      if (!ctx.wizard.state.data.playTime || ctx.wizard.state.data.playTime.length === 0) {
-        await ctx.reply('Вы не выбрали ни одного времени игры. Пожалуйста, выберите хотя бы один вариант.');
+    if (playTime === getText(ctx, 'done')) {
+      if (!ctx.wizard.state.data.playTime.length) {
+        await ctx.reply(getText(ctx, 'reg_playtime_none'));
         return;
       }
-      ctx.wizard.state.data.language = [];
-      ctx.wizard.state.availableLanguages = [...languageOptions];
       await ctx.reply(
-        'Выберите предпочитаемый язык (можно несколько):',
-        Markup.keyboard([...ctx.wizard.state.availableLanguages, 'Готово']).oneTime().resize()
+        getText(ctx, 'reg_language_prompt'),
+        Markup.keyboard([...getText(ctx, 'language_options'), getText(ctx, 'done')]).oneTime().resize()
       );
       return ctx.wizard.next();
     }
-    if (!ctx.wizard.state.availablePlayTimes.includes(playTime)) {
-      await ctx.reply(
-        'Пожалуйста, выберите время из списка или "Готово".',
-        Markup.keyboard([...ctx.wizard.state.availablePlayTimes, 'Готово']).oneTime().resize()
-      );
-      return;
-    }
-    if (!ctx.wizard.state.data.playTime) ctx.wizard.state.data.playTime = [];
     ctx.wizard.state.data.playTime.push(playTime);
-    ctx.wizard.state.availablePlayTimes = ctx.wizard.state.availablePlayTimes.filter(pt => pt !== playTime);
     await ctx.reply(
-      `Вы выбрали: ${ctx.wizard.state.data.playTime.join(', ')}.\nВыберите еще или "Готово".`,
-      Markup.keyboard([...ctx.wizard.state.availablePlayTimes, 'Готово']).oneTime().resize()
+      getText(ctx, 'reg_playtime_prompt'),
+      Markup.keyboard([...getText(ctx, 'playtime_options'), getText(ctx, 'done')]).oneTime().resize()
     );
-    return;
   },
   async (ctx) => {
     if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите язык или "Готово".');
+      await ctx.reply(getText(ctx, 'reg_language_none'));
       return;
     }
     const language = ctx.message.text;
-    if (language === 'Готово') {
-      if (!ctx.wizard.state.data.language || ctx.wizard.state.data.language.length === 0) {
-        await ctx.reply('Вы не выбрали ни одного языка. Пожалуйста, выберите хотя бы один вариант.');
+    if (language === getText(ctx, 'done')) {
+      if (!ctx.wizard.state.data.language) {
+        await ctx.reply(getText(ctx, 'reg_language_none'));
         return;
       }
-      ctx.wizard.state.data.communicationTool = [];
-      ctx.wizard.state.availableCommunicationTools = [...communicationOptions];
-      await ctx.reply(
-        'Выберите программы для общения (можно несколько):',
-        Markup.keyboard([...ctx.wizard.state.availableCommunicationTools, 'Готово']).oneTime().resize()
-      );
-      return ctx.wizard.next();
+      await ctx.reply(getText(ctx, 'reg_saving'));
+      try {
+        await User.findOneAndUpdate(
+          { telegramId: ctx.from.id },
+          {
+            telegramId: ctx.from.id,
+            username: ctx.from.username || '',
+            ...ctx.wizard.state.data,
+          },
+          { upsert: true }
+        );
+        await ctx.reply(getText(ctx, 'reg_save_success'), Markup.removeKeyboard());
+      } catch (err) {
+        console.error('Error saving profile:', err);
+        await ctx.reply(getText(ctx, 'reg_save_error'));
+      }
+      return ctx.scene.leave();
     }
-    if (!ctx.wizard.state.availableLanguages.includes(language)) {
-      await ctx.reply(
-        'Пожалуйста, выберите язык из списка или "Готово".',
-        Markup.keyboard([...ctx.wizard.state.availableLanguages, 'Готово']).oneTime().resize()
-      );
-      return;
-    }
-    if (!ctx.wizard.state.data.language) ctx.wizard.state.data.language = [];
     ctx.wizard.state.data.language.push(language);
-    ctx.wizard.state.availableLanguages = ctx.wizard.state.availableLanguages.filter(lang => lang !== language);
     await ctx.reply(
-      `Вы выбрали: ${ctx.wizard.state.data.language.join(', ')}.\nВыберите еще или "Готово".`,
-      Markup.keyboard([...ctx.wizard.state.availableLanguages, 'Готово']).oneTime().resize()
+      getText(ctx, 'reg_language_prompt'),
+      Markup.keyboard([...getText(ctx, 'language_options'), getText(ctx, 'done')]).oneTime().resize()
     );
-    return;
-  },
-  async (ctx) => {
-    if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите программу или "Готово".');
-      return;
-    }
-    const tool = ctx.message.text;
-    if (tool === 'Готово') {
-      if (!ctx.wizard.state.data.communicationTool || ctx.wizard.state.data.communicationTool.length === 0) {
-        await ctx.reply('Вы не выбрали ни одной программы. Пожалуйста, выберите хотя бы один вариант.');
-        return;
-      }
-      await ctx.reply(
-        'Выберите свой часовой пояс:',
-        Markup.keyboard(timeZoneOptions).oneTime().resize()
-      );
-      return ctx.wizard.next();
-    }
-    if (!ctx.wizard.state.availableCommunicationTools.includes(tool)) {
-      await ctx.reply(
-        'Пожалуйста, выберите программу из списка или "Готово".',
-        Markup.keyboard([...ctx.wizard.state.availableCommunicationTools, 'Готово']).oneTime().resize()
-      );
-      return;
-    }
-    if (!ctx.wizard.state.data.communicationTool) ctx.wizard.state.data.communicationTool = [];
-    ctx.wizard.state.data.communicationTool.push(tool);
-    ctx.wizard.state.availableCommunicationTools = ctx.wizard.state.availableCommunicationTools.filter(t => t !== tool);
-    await ctx.reply(
-      `Вы выбрали: ${ctx.wizard.state.data.communicationTool.join(', ')}.\nВыберите еще или "Готово".`,
-      Markup.keyboard([...ctx.wizard.state.availableCommunicationTools, 'Готово']).oneTime().resize()
-    );
-    return;
-  },
-  async (ctx) => {
-    if (!ctx.message || !ctx.message.text) {
-      await ctx.reply('Пожалуйста, выберите часовой пояс из списка.');
-      return;
-    }
-    const timeZone = ctx.message.text;
-    if (!timeZoneOptions.includes(timeZone)) {
-      await ctx.reply('Пожалуйста, выберите часовой пояс из списка.', Markup.keyboard(timeZoneOptions).oneTime().resize());
-      return;
-    }
-    ctx.wizard.state.data.timeZone = timeZone;
-    const userData = ctx.wizard.state.data;
-    try {
-      await User.findOneAndUpdate(
-        { telegramId: ctx.from.id },
-        {
-          telegramId: ctx.from.id,
-          username: ctx.from.username || '',
-          ...userData,
-        },
-        { upsert: true }
-      );
-      await ctx.reply('Твой профиль успешно сохранен!', Markup.removeKeyboard());
-    } catch (err) {
-      console.error('Ошибка при сохранении профиля:', err);
-      await ctx.reply('Произошла ошибка при сохранении профиля. Пожалуйста, попробуй позже.');
-    }
-    return ctx.scene.leave();
   }
 );
 

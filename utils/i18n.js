@@ -56,6 +56,36 @@ module.exports = {
         search_program_prompt: 'Choose communication tools (multiple):',
         search_program_none: 'Select at least one tool.',
         search_return_menu: 'Choose more criteria or press "search" to start search.',
+
+        // report.js
+        report_prompt: 'Please describe the problem you encountered, in as much detail as possible.',
+        report_error: 'Please describe your problem in text.',
+        report_admin_message: 'New problem report:\n\nFrom: {username}\nTelegramId: {fromId}\n\nProblem:\n{problemText}',
+        report_thanks: 'Thank you for your report! We will look into the problem soon.',
+
+        // cron.js
+        review_request: 'It has been 2 days since your match with {username}. Please rate your experience from 1 to 5:',
+        username_not_specified: 'not specified',
+
+        // helpers_sendProfileInfo.js
+        username_not_specified: 'not specified',
+        profile_age: 'Age',
+        profile_gender: 'Gender',
+        profile_games_and_ranks: 'Games and Ranks',
+        profile_rank_not_specified: 'Not specified',
+        profile_no_game_info: 'No game information.',
+        profile_playtime: 'Play Time',
+        profile_language: 'Language',
+        profile_timezone: 'Time Zone',
+        profile_communication_tools: 'Communication Tools',
+        like_profile_button: 'Like Profile',
+
+        // helpers.js
+        like_error_duplicate: 'Error saving like (possibly duplicate):',
+        match_found_message: 'Congratulations! You have a mutual like with a player. In 2 days, we will ask you to rate your experience of playing together.',
+        profile_liked_notification: '{username} liked your profile! Here is their profile:',
+        username_not_specified: 'not specified',
+
   
         // UI words
         male: 'Male',
@@ -75,7 +105,14 @@ module.exports = {
         playtime_evening: 'Evening',
         lang_english_option: 'English',
         lang_russian_option: 'Russian',
-        lang_ukrainian_option: 'Ukrainian'
+        lang_ukrainian_option: 'Ukrainian',
+
+        help_start: 'Start working with the bot',
+        help_register: 'Register or update your profile',
+        help_find: 'Find teammates',
+        help_profile: 'View your profile',
+        help_help: 'Show command list',
+        help_report: 'Report a problem'
       },
   
       ru: {
@@ -134,6 +171,35 @@ module.exports = {
         search_program_prompt: 'Выберите программы для общения (несколько):',
         search_program_none: 'Выберите хотя бы одну программу.',
         search_return_menu: 'Выберите дополнительные критерии или нажмите "Поиск" для начала.',
+
+        // report.js
+        report_prompt: 'Опишите, пожалуйста, проблему, с которой вы столкнулись. Чем подробнее, тем лучше!',
+        report_error: 'Пожалуйста, опишите вашу проблему текстом.',
+        report_admin_message: 'Новый репорт о проблеме:\n\nОт: {username}\nTelegramId: {fromId}\n\nПроблема:\n{problemText}',
+        report_thanks: 'Спасибо за ваш отчет! Мы постараемся решить проблему в ближайшее время.',
+
+        //cron.js
+        review_request: 'Прошло 2 суток с момента вашего матча с {username}. Пожалуйста, оцените ваш игровой опыт от 1 до 5:',
+        username_not_specified: 'не указан',
+
+        // helpers_sendProfileInfo.js
+        username_not_specified: 'не указан',
+        profile_age: 'Возраст',
+        profile_gender: 'Пол',
+        profile_games_and_ranks: 'Игры и ранги',
+        profile_rank_not_specified: 'Не указан',
+        profile_no_game_info: 'Нет информации об играх.',
+        profile_playtime: 'Время игры',
+        profile_language: 'Язык',
+        profile_timezone: 'Часовой пояс',
+        profile_communication_tools: 'Программы для общения',
+        like_profile_button: 'Понравился профиль',
+
+        // helpers.js
+        like_error_duplicate: 'Ошибка при сохранении лайка (возможно дубликат):',
+        match_found_message: 'Поздравляем! У вас взаимный лайк с игроком. Через 2 суток мы попросим вас оценить опыт игры друг с другом.',
+        profile_liked_notification: 'Ваш профиль понравился {username}! Вот его профиль:',
+        username_not_specified: 'не указан',
   
         // UI words
         male: 'Мужской',
@@ -153,7 +219,14 @@ module.exports = {
         playtime_evening: 'Вечер',
         lang_english_option: 'Английский',
         lang_russian_option: 'Русский',
-        lang_ukrainian_option: 'Украинский'
+        lang_ukrainian_option: 'Украинский',
+
+        help_start: 'Начать работу с ботом',
+        help_register: 'Зарегистрироваться или обновить профиль',
+        help_find: 'Найти тиммейтов',
+        help_profile: 'Просмотреть свой профиль',
+        help_help: 'Показать список команд',
+        help_report: 'Сообщить о проблеме'
       },
   
       ua: {
@@ -212,7 +285,36 @@ module.exports = {
         search_program_prompt: 'Оберіть програми для спілкування (декілька):',
         search_program_none: 'Оберіть хоча б одну програму.',
         search_return_menu: 'Виберіть додаткові критерії або натисніть "Поиск" для початку пошуку.',
-  
+
+        // report.js
+        report_prompt: 'Будь ласка, опишіть проблему, з якою ви зіткнулися, якомога детальніше.',
+        report_error: 'Будь ласка, опишіть вашу проблему текстом.',
+        report_admin_message: 'Новий репорт про проблему:\n\nВід: {username}\nTelegramId: {fromId}\n\nПроблема:\n{problemText}',
+        report_thanks: 'Дякуємо за ваш звіт! Ми постараємося вирішити проблему найближчим часом.',
+
+        //cron.js
+        review_request: 'Минуло 2 дні з моменту вашого матчу з {username}. Оцініть ваш досвід гри від 1 до 5:',
+        username_not_specified: 'не вказано',
+
+        // helpers_sendProfileInfo.js
+        username_not_specified: 'не вказано',
+        profile_age: 'Вік',
+        profile_gender: 'Стать',
+        profile_games_and_ranks: 'Ігри та ранги',
+        profile_rank_not_specified: 'Не вказано',
+        profile_no_game_info: 'Немає інформації про ігри.',
+        profile_playtime: 'Час гри',
+        profile_language: 'Мова',
+        profile_timezone: 'Часовий пояс',
+        profile_communication_tools: 'Програми для спілкування',
+        like_profile_button: 'Сподобався профіль',
+
+        // helpers.js
+        like_error_duplicate: 'Помилка збереження вподобання (можливо дублікат):',
+        match_found_message: 'Вітаємо! У вас взаємне вподобання з гравцем. Через 2 дні ми попросимо вас оцінити досвід гри разом.',
+        profile_liked_notification: 'Ваш профіль сподобався {username}! Ось його профіль:',
+        username_not_specified: 'не вказано',
+        
         // UI words
         male: 'Чоловіча',
         female: 'Жіноча',
@@ -232,16 +334,23 @@ module.exports = {
         lang_english_option: 'Англійська',
         lang_russian_option: 'Російська',
         lang_ukrainian_option: 'Українська',
+
+        help_start: 'Почати роботу з ботом',
+        help_register: 'Зареєструватися або оновити профіль',
+        help_find: 'Знайти команду',
+        help_profile: 'Переглянути свій профіль',
+        help_help: 'Показати список команд',
+        help_report: 'Повідомити про проблему'
       }
     },
   
     getText(ctx, key, params = {}) {
-      const lang = ctx.session?.language || 'en';
-      let text = this.texts[lang][key];
-      for (const p in params) {
-        text = text.replace(`{${p}}`, params[p]);
+        const lang = ctx.session?.language || 'en';
+        const langTexts = this.texts[lang] || this.texts['en']; // Фоллбэк на английский язык
+        let text = langTexts[key] || this.texts['en'][key] || key; // Фоллбэк на ключ
+        for (const p in params) {
+          text = text.replace(`{${p}}`, params[p]);
+        }
+        return text;
       }
-      return text;
-    }
-  };
-  
+    };
