@@ -1,5 +1,4 @@
-module.exports = {
-    texts: {
+const texts = {
       en: {
         // General
         greeting: '🔥 Hello, champion! 🔥\n\nReady to assemble the dream team? I\'m here to help! 🚀\n\n👉 Use /register to begin.\n\nTime to play and win! 🎮',
@@ -342,15 +341,23 @@ module.exports = {
         help_help: 'Показати список команд',
         help_report: 'Повідомити про проблему'
       }
-    },
+    };
   
-    getText(ctx, key, params = {}) {
+    function getText(ctx, key, params = {}) {
         const lang = ctx.session?.language || 'en';
-        const langTexts = this.texts[lang] || this.texts['en']; // Фоллбэк на английский язык
-        let text = langTexts[key] || this.texts['en'][key] || key; // Фоллбэк на ключ
-        for (const p in params) {
-          text = text.replace(`{${p}}`, params[p]);
+        const langTexts = texts[lang] || texts['en']; // Фоллбэк на английский
+        const fallbackTexts = texts['en'] || {};
+        let text = langTexts[key] || fallbackTexts[key] || key; // Фоллбэк на английский ключ
+      
+        for (const [placeholder, value] of Object.entries(params)) {
+          const regex = new RegExp(`{${placeholder}}`, 'g');
+          text = text.replace(regex, value);
         }
+      
         return text;
       }
-    };
+      
+      module.exports = {
+        texts,
+        getText
+      };
